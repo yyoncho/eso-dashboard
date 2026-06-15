@@ -362,9 +362,68 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
                 <th>Баланс</th>
                 <th style="width:100px;">Поток</th>
                 <th style="text-align:right;">EUR/h</th>
+                <th style="text-align:right;">Конг. €/h</th>
               </tr>
             </thead>
             <tbody id="flows-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Congestion rent card -->
+      <div class="panel" id="cong-live" style="display:none;">
+        <div class="panel-header">
+          <a href="#cong-live" class="anchor-link">Конгестийна рента — живо</a>
+          <button class="info-btn" onclick="document.getElementById('cong-card-info').classList.toggle('open')" title="Информация">?</button>
+        </div>
+        <div id="cong-card-info" class="info-dropdown">Конгестийна рента (congestion rent) е приходът, който операторът на преносната система (ЕСО) получава при пренос на електроенергия между два пазара с различна цена. При износ от БГ към РО или ГР (по-висока цена), ЕСО инкасира разликата в цените, умножена по преносната мощност. Формула: рента = −поток_МВт × (цена_съсед − цена_БГ) × часове. Отрицателен поток означава износ от БГ. Положителна рента = приход за ЕСО.</div>
+        <div class="panel-body" style="padding:8px 12px 10px;">
+          <!-- Price comparison row -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:#f0f5fb;border-radius:4px;padding:7px 8px;margin-bottom:10px;">
+            <div>
+              <div style="font-size:0.6rem;color:#5a7090;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">IBEX (БГ)</div>
+              <div style="font-size:1.1rem;font-weight:700;color:#1a2233;" id="cc-p-bg">—</div>
+              <div style="font-size:0.65rem;color:#7a8aaa;">EUR/MWh</div>
+            </div>
+            <div>
+              <div style="font-size:0.6rem;color:#5a7090;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">DA Румъния</div>
+              <div style="font-size:1.1rem;font-weight:700;color:#1a2233;" id="cc-p-ro">—</div>
+              <div style="font-size:0.65rem;font-weight:600;" id="cc-spread-ro">—</div>
+            </div>
+            <div>
+              <div style="font-size:0.6rem;color:#5a7090;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:2px;">DA Гърция</div>
+              <div style="font-size:1.1rem;font-weight:700;color:#1a2233;" id="cc-p-gr">—</div>
+              <div style="font-size:0.65rem;font-weight:600;" id="cc-spread-gr">—</div>
+            </div>
+          </div>
+          <!-- Per-border table -->
+          <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #c5d8ee;">
+                <th style="text-align:left;padding:3px 4px;color:#5a7090;font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;">Граница</th>
+                <th style="text-align:right;padding:3px 4px;color:#5a7090;font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;">Поток МВт</th>
+                <th style="text-align:right;padding:3px 4px;color:#5a7090;font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;">Спред €/МВтч</th>
+                <th style="text-align:right;padding:3px 4px;color:#5a7090;font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.04em;">Рента €/ч</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:5px 4px;">🇷🇴 Румъния</td>
+                <td style="text-align:right;padding:5px 4px;" id="cc-ro-mw">—</td>
+                <td style="text-align:right;padding:5px 4px;" id="cc-ro-spread">—</td>
+                <td style="text-align:right;padding:5px 4px;font-weight:700;" id="cc-ro-eur">—</td>
+              </tr>
+              <tr>
+                <td style="padding:5px 4px;">🇬🇷 Гърция</td>
+                <td style="text-align:right;padding:5px 4px;" id="cc-gr-mw">—</td>
+                <td style="text-align:right;padding:5px 4px;" id="cc-gr-spread">—</td>
+                <td style="text-align:right;padding:5px 4px;font-weight:700;" id="cc-gr-eur">—</td>
+              </tr>
+              <tr style="border-top:2px solid #004494;background:#f0f5fb;">
+                <td colspan="3" style="padding:6px 4px;font-weight:700;color:#004494;font-size:0.82rem;">Общо конгестия</td>
+                <td style="text-align:right;padding:6px 4px;font-weight:700;font-size:1rem;" id="cc-total-eur">—</td>
+              </tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -402,6 +461,27 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
               <span class="price-val" id="p-avg">—</span> <span class="price-unit">EUR/MWh</span></div>
             <div><div class="price-label">Мин / Макс</div>
               <span class="price-val" id="p-minmax">—</span> <span class="price-unit">EUR/MWh</span></div>
+          </div>
+          <div id="cong-daily-box" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #c5d8ee;">
+            <div style="font-size:0.68rem;color:#5a7090;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">Конгестия — дневен приход</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <div class="balance-item revenue">
+                <div class="balance-label">Румъния</div>
+                <div class="balance-val revenue" id="b-cong-ro-eur">—</div>
+                <div class="stat-unit" id="b-cong-ro-sub">—</div>
+              </div>
+              <div class="balance-item revenue">
+                <div class="balance-label">Гърция</div>
+                <div class="balance-val revenue" id="b-cong-gr-eur">—</div>
+                <div class="stat-unit" id="b-cong-gr-sub">—</div>
+              </div>
+            </div>
+            <div style="margin-top:6px;">
+              <div class="balance-item" style="grid-column:1/-1;">
+                <div class="balance-label">Общо конгестия (РО + ГР)</div>
+                <div class="balance-val neutral" id="b-cong-total-eur">—</div>
+              </div>
+            </div>
           </div>
           <div id="batt-daily-box" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #c5d8ee;">
             <div style="font-size:0.68rem;color:#5a7090;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;">ССЕЕ — дневен баланс</div>
@@ -569,6 +649,8 @@ const TARIFF = {
 // ══════════════════════════════════════════════════════════════════════════════
 let allDates   = [];
 let priceCache = {};
+const nbrPriceCache = {};
+let _nbrPriceData = { ro: null, gr: null };
 const chartMode = 'instant';
 let reMode            = false;
 let eurMode           = false;
@@ -724,6 +806,42 @@ function getDayPrices(pd, dateStr) {
   const pts = [];
   for (let i = 0; i < us.length; i++) if (us[i] >= s0 && us[i] < s1) pts.push({ ts: us[i]*1000, price: pr[i] });
   return pts;
+}
+
+async function loadNeighborPrices(dateStr) {
+  const ym = dateStr.slice(0, 7);
+  const isFirst = dateStr.slice(8, 10) === '01';
+  const result = { ro: null, gr: null };
+  for (const cc of ['ro', 'gr']) {
+    const cacheKey = `${cc}-${ym}${isFirst ? '+prev' : ''}`;
+    if (nbrPriceCache[cacheKey]) { result[cc] = nbrPriceCache[cacheKey]; continue; }
+    try {
+      const d = await getJSON(`${BASE}/prices-${cc}-${ym}.json`);
+      if (isFirst) {
+        const prev = new Date(dateStr + 'T12:00:00Z');
+        prev.setUTCMonth(prev.getUTCMonth() - 1);
+        const ymPrev = prev.toISOString().slice(0, 7);
+        try {
+          const dp = await getJSON(`${BASE}/prices-${cc}-${ymPrev}.json`);
+          if (dp && dp.unix_seconds) {
+            const existing = new Set(d.unix_seconds || []);
+            for (let i = 0; i < dp.unix_seconds.length; i++) {
+              if (!existing.has(dp.unix_seconds[i])) {
+                (d.unix_seconds = d.unix_seconds || []).push(dp.unix_seconds[i]);
+                (d.price = d.price || []).push(dp.price[i]);
+              }
+            }
+            const paired = d.unix_seconds.map((t,i)=>[t,d.price[i]]).sort((a,b)=>a[0]-b[0]);
+            d.unix_seconds = paired.map(p=>p[0]);
+            d.price        = paired.map(p=>p[1]);
+          }
+        } catch(_) {}
+      }
+      nbrPriceCache[cacheKey] = d;
+      result[cc] = d;
+    } catch(_) {}
+  }
+  return result;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1116,7 +1234,7 @@ function battState(mw) {
   return mw < 0 ? 'charging' : 'discharging';
 }
 
-function updateStatusCards(latest, pd) {
+function updateStatusCards(latest, pd, nbrPd) {
   if (!latest) return;
   const load    = latest['load_mw'] || latest['Товар на РБ'] || 0;
   const genBase = latest['gen_total_mw'] || 0;
@@ -1163,17 +1281,23 @@ function updateStatusCards(latest, pd) {
   document.getElementById('s-dyn').innerHTML = cards.map(c => `
     <div class="stat-card" style="border-top-color:${c.color};${c.dim ? 'opacity:0.4;' : ''}">
       <div class="stat-label">${c.label}</div>
-      <div class="stat-val">${fmt0(c.v)}</div>
+      <div class="stat-val">${c._raw ? fmtEur(c.v) : fmt0(c.v)}</div>
       <div class="stat-unit">${c.unit}</div>
     </div>`).join('');
 }
 
-function updateFlowsTable(latest, pd) {
+function updateFlowsTable(latest, pd, nbrPd) {
   if (!latest) return;
-  const price  = getPriceAt(pd, toUtcMs(latest));
+  const tsMs   = toUtcMs(latest);
+  const price  = getPriceAt(pd, tsMs);
   const maxAbs = Math.max(1, ...FLOW_CFG.map(f=>Math.abs(latest[f.key]||0)));
   const noteEl = document.getElementById('flows-price-note');
   if (noteEl) noteEl.textContent = isFinite(price)?`@ ${price.toFixed(1)} €/MWh IBEX`:'';
+
+  const nbrPrice = {
+    RO_mw: nbrPd && nbrPd.ro ? getPriceAt(nbrPd.ro, tsMs) : NaN,
+    GR_mw: nbrPd && nbrPd.gr ? getPriceAt(nbrPd.gr, tsMs) : NaN,
+  };
 
   const tbody = document.getElementById('flows-tbody');
   tbody.innerHTML = '';
@@ -1182,10 +1306,18 @@ function updateFlowsTable(latest, pd) {
     const mw = latest[f.key]||0, isImp = mw>0;
     const pct = Math.min(100,(Math.abs(mw)/maxAbs)*48);
     const eurVal = isFinite(price) ? (isImp ? -1 : 1) * Math.abs(mw) * price : NaN;
-    // Beneficial = earning money: import at neg price OR export at pos price
     const beneficial = isFinite(price) ? (isImp === negPrice) : !isImp;
     const mwClass  = beneficial ? 'export-val' : 'import-val';
     const eurColor = isFinite(eurVal) ? (eurVal >= 0 ? '#1a8a1a' : '#cc2200') : '#666';
+    // Congestion: flow × (neighbor_price − bg_price), positive = ESO earns revenue
+    const np = nbrPrice[f.key];
+    const spread = isFinite(np) && isFinite(price) ? np - price : NaN;
+    const congEur = isFinite(spread) ? -mw * spread : NaN;  // EUR/h; -mw because ESO_mw<0=export
+    const congColor = isFinite(congEur) ? (congEur >= 0 ? '#1a8a1a' : '#cc2200') : '#999';
+    const congTxt = isFinite(congEur)
+      ? `<span style="color:${congColor};font-size:0.75rem;">${fmtEur(congEur)}/h</span>`
+        + (isFinite(spread) ? `<br><span style="font-size:0.65rem;color:#8a9bb5;">Δ${spread>=0?'+':''}${spread.toFixed(1)}€</span>` : '')
+      : '<span style="color:#ccc;">—</span>';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="font-weight:600;">${f.label}</td>
@@ -1194,7 +1326,8 @@ function updateFlowsTable(latest, pd) {
         <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:#ccc;"></div>
         <div class="flow-bar ${isImp?'import':'export'}" style="width:${pct}%;"></div>
       </div></td>
-      <td style="text-align:right;font-size:0.75rem;color:${eurColor};" title="Оценка на база IBEX DA цена — не е реална сетълмент стойност">${isFinite(eurVal)?fmtEur(eurVal)+'/h ~':'—'}</td>`;
+      <td style="text-align:right;font-size:0.75rem;color:${eurColor};" title="Оценка на база IBEX DA цена">${isFinite(eurVal)?fmtEur(eurVal)+'/h ~':'—'}</td>
+      <td style="text-align:right;line-height:1.3;">${congTxt}</td>`;
     tbody.appendChild(tr);
   }
 
@@ -1205,6 +1338,12 @@ function updateFlowsTable(latest, pd) {
   const netBeneficial = isFinite(price) ? (isNetImp === negPrice) : !isNetImp;
   const netMwClass  = netBeneficial ? 'export-val' : 'import-val';
   const netEurColor = isFinite(netEurVal) ? (netEurVal >= 0 ? '#1a8a1a' : '#cc2200') : '#666';
+  // Total congestion for RO+GR combined
+  const totalCong = ['RO_mw','GR_mw'].reduce((s,k) => {
+    const sp = nbrPrice[k]; const flow = latest[k]||0;
+    return isFinite(sp) && isFinite(price) ? s + (-flow)*(sp-price) : s;
+  }, 0);
+  const totalCongColor = totalCong >= 0 ? '#1a8a1a' : '#cc2200';
   const netTr = document.createElement('tr');
   netTr.style.cssText = 'border-top:2px solid #c5d8ee;font-weight:700;';
   netTr.innerHTML = `
@@ -1214,8 +1353,61 @@ function updateFlowsTable(latest, pd) {
       <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:#999;"></div>
       <div class="flow-bar ${isNetImp?'import':'export'}" style="width:${Math.min(48,(Math.abs(netMw)/maxAbs)*48)}%;"></div>
     </div></td>
-    <td style="text-align:right;font-size:0.75rem;color:${netEurColor};" title="Оценка на база IBEX DA цена — не е реална сетълмент стойност">${isFinite(netEurVal)?fmtEur(netEurVal)+'/h ~':'—'}</td>`;
+    <td style="text-align:right;font-size:0.75rem;color:${netEurColor};">${isFinite(netEurVal)?fmtEur(netEurVal)+'/h ~':'—'}</td>
+    <td style="text-align:right;font-size:0.75rem;color:${totalCongColor};">${totalCong!==0?fmtEur(totalCong)+'/h':'—'}</td>`;
   tbody.appendChild(netTr);
+}
+
+function updateCongCard(latest, pd, nbrPd) {
+  const panel = document.getElementById('cong-live');
+  if (!panel || !latest || !nbrPd) return;
+  const tsMs  = toUtcMs(latest);
+  const price = getPriceAt(pd, tsMs);
+  const roP   = getPriceAt(nbrPd.ro, tsMs);
+  const grP   = getPriceAt(nbrPd.gr, tsMs);
+  const roMw  = latest['RO_mw'] || 0;
+  const grMw  = latest['GR_mw'] || 0;
+
+  const hasData = isFinite(roP) || isFinite(grP);
+  panel.style.display = hasData ? '' : 'none';
+  if (!hasData) return;
+
+  const roSpread = isFinite(roP) && isFinite(price) ? roP - price : NaN;
+  const grSpread = isFinite(grP) && isFinite(price) ? grP - price : NaN;
+  const roEur   = isFinite(roSpread) ? -roMw * roSpread : NaN;
+  const grEur   = isFinite(grSpread) ? -grMw * grSpread : NaN;
+  const totalEur = (isFinite(roEur) ? roEur : 0) + (isFinite(grEur) ? grEur : 0);
+
+  const fmtMw = mw => {
+    const dir = mw < 0 ? '▼ износ' : mw > 0 ? '▲ внос' : '—';
+    return `${fmt0(Math.abs(mw))} МВт ${dir}`;
+  };
+  const fmtSpread = sp => isFinite(sp)
+    ? `<span style="color:${sp>=0?'#1a8a1a':'#cc2200'};font-weight:600;">${sp>=0?'+':''}${sp.toFixed(1)} €/МВтч</span>`
+    : '<span style="color:#999;">—</span>';
+  const fmtRent = eur => isFinite(eur)
+    ? `<span style="color:${eur>=0?'#1a8a1a':'#cc2200'};">${fmtEur(eur)}/ч</span>`
+    : '<span style="color:#999;">—</span>';
+
+  // Price box
+  document.getElementById('cc-p-bg').textContent = isFinite(price) ? price.toFixed(1) : '—';
+  document.getElementById('cc-p-ro').textContent = isFinite(roP) ? roP.toFixed(1) : '—';
+  document.getElementById('cc-p-gr').textContent = isFinite(grP) ? grP.toFixed(1) : '—';
+  document.getElementById('cc-spread-ro').innerHTML = isFinite(roSpread)
+    ? `<span style="color:${roSpread>=0?'#1a8a1a':'#cc2200'};font-weight:600;">${roSpread>=0?'+':''}${roSpread.toFixed(1)} €/МВтч</span>` : '—';
+  document.getElementById('cc-spread-gr').innerHTML = isFinite(grSpread)
+    ? `<span style="color:${grSpread>=0?'#1a8a1a':'#cc2200'};font-weight:600;">${grSpread>=0?'+':''}${grSpread.toFixed(1)} €/МВтч</span>` : '—';
+
+  // Table cells
+  document.getElementById('cc-ro-mw').innerHTML     = `<span style="color:${roMw<=0?'#1a8a1a':'#cc2200'};">${fmtMw(roMw)}</span>`;
+  document.getElementById('cc-ro-spread').innerHTML = fmtSpread(roSpread);
+  document.getElementById('cc-ro-eur').innerHTML    = fmtRent(roEur);
+  document.getElementById('cc-gr-mw').innerHTML     = `<span style="color:${grMw<=0?'#1a8a1a':'#cc2200'};">${fmtMw(grMw)}</span>`;
+  document.getElementById('cc-gr-spread').innerHTML = fmtSpread(grSpread);
+  document.getElementById('cc-gr-eur').innerHTML    = fmtRent(grEur);
+
+  const totEl = document.getElementById('cc-total-eur');
+  totEl.innerHTML = `<span style="color:${totalEur>=0?'#1a8a1a':'#cc2200'};">${fmtEur(totalEur)}/ч</span>`;
 }
 
 function updateGenTable(latest) {
@@ -1246,13 +1438,29 @@ function updateGenTable(latest) {
   }
 }
 
-function updateDayBalance(binned, pd, dateStr, snapMs = null) {
+function updateDayBalance(binned, pd, dateStr, snapMs = null, nbrPd = null) {
   const W = 15*60*1000, dayPrices = getDayPrices(pd, dateStr);
   const pByBin = {};
   for (const p of dayPrices) pByBin[Math.floor(p.ts/W)*W] = p.price;
 
+  // Build neighbor price lookups by bin (15-min aligned)
+  function nbrPricesByBin(npd) {
+    if (!npd) return {};
+    const m = {};
+    if (npd.unix_seconds) {
+      for (let i = 0; i < npd.unix_seconds.length; i++) {
+        const binTs = Math.floor(npd.unix_seconds[i] / (W/1000)) * W;
+        m[binTs] = npd.price[i];
+      }
+    }
+    return m;
+  }
+  const roPByBin = nbrPd ? nbrPricesByBin(nbrPd.ro) : {};
+  const grPByBin = nbrPd ? nbrPricesByBin(nbrPd.gr) : {};
+
   let impMwh=0, expMwh=0, impEur=0, expEur=0, pSum=0, pN=0, pMin=Infinity, pMax=-Infinity;
   let battChgMwh=0, battDisMwh=0, pumpsChgMwh=0, pumpsChgEur=0;
+  let congRoEur=0, congGrEur=0, congRoMwh=0, congGrMwh=0;
   for (const b of binned) {
     const mw = b['net_import_mw']; if (!isFinite(mw)) continue;
     const mwh = mw*(15/60);
@@ -1271,6 +1479,11 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
       pumpsChgMwh += pumps * (15/60);
       if (isFinite(p)) pumpsChgEur += pumps * (15/60) * p;
     }
+    // Congestion: flow × (neighbor_price − bg_price) × interval_h
+    const roMw = b['RO_mw'] || 0, grMw = b['GR_mw'] || 0;
+    const roP = roPByBin[b.ts] ?? NaN, grP = grPByBin[b.ts] ?? NaN;
+    if (isFinite(p) && isFinite(roP)) { congRoEur += -roMw * (roP - p) * (15/60); congRoMwh += Math.abs(roMw) * (15/60); }
+    if (isFinite(p) && isFinite(grP)) { congGrEur += -grMw * (grP - p) * (15/60); congGrMwh += Math.abs(grMw) * (15/60); }
   }
   const net = expEur - impEur;
   const avgImpPrice = impMwh > 0 ? impEur / impMwh : NaN;
@@ -1291,6 +1504,27 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
   netEl.textContent = fmtEur(net);
   netEl.className   = 'balance-val '+(net>=0?'revenue':'expense');
   document.getElementById('b-net-mwh').textContent = fmt0(expMwh-impMwh)+' MWh нет';
+
+  // Congestion daily box
+  const congBox = document.getElementById('cong-daily-box');
+  const hasCong = congRoMwh > 0 || congGrMwh > 0;
+  if (congBox) {
+    congBox.style.display = hasCong ? '' : 'none';
+    if (hasCong) {
+      const roEl = document.getElementById('b-cong-ro-eur');
+      roEl.textContent = fmtEur(congRoEur);
+      roEl.className = 'balance-val ' + (congRoEur >= 0 ? 'revenue' : 'expense');
+      document.getElementById('b-cong-ro-sub').textContent = fmt0(congRoMwh) + ' MWh';
+      const grEl = document.getElementById('b-cong-gr-eur');
+      grEl.textContent = fmtEur(congGrEur);
+      grEl.className = 'balance-val ' + (congGrEur >= 0 ? 'revenue' : 'expense');
+      document.getElementById('b-cong-gr-sub').textContent = fmt0(congGrMwh) + ' MWh';
+      const totEl = document.getElementById('b-cong-total-eur');
+      const totCong = congRoEur + congGrEur;
+      totEl.textContent = fmtEur(totCong);
+      totEl.className = 'balance-val ' + (totCong >= 0 ? 'revenue' : 'expense');
+    }
+  }
 
   const battBox = document.getElementById('batt-daily-box');
   battBox.style.display = (battChgMwh > 0 || battDisMwh > 0 || pumpsChgMwh > 0) ? '' : 'none';
@@ -1949,13 +2183,14 @@ function onSnapSlider(val) {
   const snap = _dayRecords[idx];
   if (!snap) return;
   updateSnapLabel(snap);
-  updateStatusCards(snap, _dayPriceData);
-  updateFlowsTable(snap, _dayPriceData);
+  updateStatusCards(snap, _dayPriceData, _nbrPriceData);
+  updateFlowsTable(snap, _dayPriceData, _nbrPriceData);
+  updateCongCard(snap, _dayPriceData, _nbrPriceData);
   updateGenTable(snap);
   drawPie(snap);
   const snapMs = toUtcMs(snap);
   const slicedBinned = bin15min(_dayRecords.slice(0, idx + 1));
-  updateDayBalance(slicedBinned, _dayPriceData, _dayDateStr, snapMs);
+  updateDayBalance(slicedBinned, _dayPriceData, _dayDateStr, snapMs, _nbrPriceData);
   drawTariffPanel(_dayPriceData, slicedBinned, _dayDateStr, snapMs, _loadProfile);
   const ts = snap['timestamp_utc'] || snap['timestamp'];
   writeHash(currentDay, ts);
@@ -1989,6 +2224,7 @@ async function refresh() {
     const latest  = allRecords.length ? allRecords[allRecords.length-1] : null;
     const binned  = bin15min(allRecords);
     const pd      = await loadPrices(dateStr);
+    const nbrPd   = await loadNeighborPrices(dateStr);
 
     // Load profile — fetch once, reuse until next day
     if (!_loadProfile) {
@@ -2001,6 +2237,7 @@ async function refresh() {
     _dayRecords   = allRecords;
     _dayPriceData = pd;
     _dayDateStr   = dateStr;
+    _nbrPriceData = nbrPd;
 
     updateScrubber(allRecords);
 
@@ -2019,10 +2256,11 @@ async function refresh() {
       }
     }
     updateTimestamp(displaySnap);
-    updateStatusCards(displaySnap, pd);
-    updateFlowsTable(displaySnap, pd);
+    updateStatusCards(displaySnap, pd, nbrPd);
+    updateFlowsTable(displaySnap, pd, nbrPd);
+    updateCongCard(displaySnap, pd, nbrPd);
     updateGenTable(displaySnap);
-    updateDayBalance(displayBinned, pd, dateStr);
+    updateDayBalance(displayBinned, pd, dateStr, null, nbrPd);
 
     drawPie(displaySnap);
     updateDayStartLabel();
