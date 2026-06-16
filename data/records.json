@@ -1,7 +1,7 @@
 {
   "solar": {
     "val": 4069.9,
-    "label": "Пиково соларно производство",
+    "label": "Соларно производство",
     "unit": "MW",
     "date": "2026-06-10",
     "snap_ts": "2026-06-10T10:10:03Z"
@@ -34,33 +34,12 @@
     "date": "2026-06-16",
     "snap_ts": null
   },
-  "chg_gwh_day": {
-    "val": 9.1,
-    "label": "Зареждане за ден",
-    "unit": "GWh",
-    "date": "2026-06-05",
-    "snap_ts": null
-  },
   "batt_dis": {
     "val": 2262.6,
     "label": "Разреждане на ССЕЕ",
     "unit": "MW",
     "date": "2026-06-15",
     "snap_ts": "2026-06-15T18:30:03Z"
-  },
-  "dis_gwh_day": {
-    "val": 8.7,
-    "label": "Разреждане за ден",
-    "unit": "GWh",
-    "date": "2026-06-08",
-    "snap_ts": null
-  },
-  "pumps_gwh": {
-    "val": 2.9,
-    "label": "Помпи рекорд ден",
-    "unit": "GWh",
-    "date": "2026-06-06",
-    "snap_ts": null
   },
   "dis_gwh_day": {
     "val": 8.7,
