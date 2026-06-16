@@ -27,12 +27,33 @@
     "date": "2026-06-15",
     "snap_ts": "2026-06-15T10:20:03Z"
   },
+  "cum_chg_gwh": {
+    "val": 107.6,
+    "label": "Зареждане от 3 юни",
+    "unit": "GWh",
+    "date": "2026-06-16",
+    "snap_ts": null
+  },
   "batt_dis": {
     "val": 2262.6,
     "label": "Разреждане на ССЕЕ",
     "unit": "MW",
     "date": "2026-06-15",
     "snap_ts": "2026-06-15T18:30:03Z"
+  },
+  "cum_dis_gwh": {
+    "val": 102.6,
+    "label": "Разреждане от 3 юни",
+    "unit": "GWh",
+    "date": "2026-06-16",
+    "snap_ts": null
+  },
+  "pumps_gwh": {
+    "val": 2.9,
+    "label": "Помпи рекорд ден",
+    "unit": "GWh",
+    "date": "2026-06-06",
+    "snap_ts": null
   },
   "export": {
     "val": 2967.8,
