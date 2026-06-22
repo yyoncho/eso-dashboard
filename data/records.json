@@ -42,10 +42,10 @@
     "snap_ts": "2026-06-22T19:00:02Z"
   },
   "dis_gwh_day": {
-    "val": 9.2,
+    "val": 9.3,
     "label": "Разреждане за ден",
     "unit": "GWh",
-    "date": "2026-06-19",
+    "date": "2026-06-22",
     "snap_ts": null
   },
   "pumps_gwh": {
