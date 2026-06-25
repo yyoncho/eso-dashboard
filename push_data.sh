@@ -5,6 +5,10 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA_WORKTREE="$(cd "$SCRIPT_DIR/../eso-data" && pwd)"
 
+# ── Prices: always run first, independent of ESO availability ────────────────
+set +e
+DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/fetch.py" --prices-only || true
+
 # ── Fetch (strict: exit if ESO is unreachable — nothing to commit) ────────────
 set -euo pipefail
 DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/fetch.py"

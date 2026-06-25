@@ -266,10 +266,11 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
         <span id="day-label"></span>
         <div class="rec-dropdown-wrap" style="position:relative">
           <button class="nav-btn" id="npp-btn" onclick="toggleNpp(event)" style="padding:0 7px">▾</button>
-          <div id="npp-dropdown" style="position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #c5d8ee;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:200;min-width:200px;display:none">
-            <div style="background:#004494;color:#fff;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;padding:7px 12px;border-radius:5px 5px 0 0">Ядрена енергия</div>
-            <div style="padding:8px 12px">
-              <a href="nuclear_lcoe.html" style="display:block;font-size:0.82rem;color:#2d6bbf;text-decoration:none;padding:4px 0">⚛ АЕЦ Козлодуй — LCOE калкулатор</a>
+          <div id="npp-dropdown" style="position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #c5d8ee;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:200;min-width:220px;display:none">
+            <div style="background:#004494;color:#fff;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;padding:7px 12px;border-radius:5px 5px 0 0">Анализи</div>
+            <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px">
+              <a href="nuclear_lcoe.html" style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">⚛ АЕЦ Козлодуй — LCOE калкулатор</a>
+              <a href="trends.html"       style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">📈 Дългосрочни тенденции</a>
             </div>
           </div>
         </div>

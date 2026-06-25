@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Дългосрочни тенденции — БГ Eнергетика</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: #eef3f8; color: #1a2233; font-size: 14px; }
+
+header {
+  background: linear-gradient(180deg, #004494 0%, #003070 100%);
+  color: #fff;
+  border-bottom: 3px solid #ffd700;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1rem; font-weight: 700; }
+header a  { color: rgba(255,255,255,0.72); font-size: 0.78rem; text-decoration: none; }
+header a:hover { color: #fff; }
+
+.page { max-width: 1120px; margin: 0 auto; padding: 16px; }
+
+.panel {
+  background: #fff;
+  border: 1px solid #c5d8ee;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.panel-header {
+  background: #e8f0fa;
+  border-bottom: 1px solid #c5d8ee;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #003070;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.panel-body { padding: 14px 16px; }
+
+.controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.btn {
+  padding: 4px 11px;
+  border: 1px solid #c5d8ee;
+  border-radius: 4px;
+  background: #f0f5fb;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #444;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.btn:hover { background: #dce8f5; }
+.btn.active-price { background: #1a6fbf; color: #fff; border-color: #1a6fbf; }
+.btn.active-solar { background: #c87800; color: #fff; border-color: #c87800; }
+.btn.active-coal  { background: #555;    color: #fff; border-color: #555; }
+
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr; } }
+
+.kpi {
+  border-radius: 5px;
+  padding: 11px 14px;
+  border: 1px solid;
+}
+.kpi.price { background: #f0f6ff; border-color: #b8d4f5; }
+.kpi.solar { background: #fff8ee; border-color: #f5d98a; }
+.kpi.coal  { background: #f5f5f5; border-color: #d0d0d0; }
+.kpi-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; color: #6a7a90; margin-bottom: 4px; }
+.kpi-val   { font-size: 1.3rem; font-weight: 700; line-height: 1.1; }
+.kpi.price .kpi-val { color: #1a6fbf; }
+.kpi.solar .kpi-val { color: #c87800; }
+.kpi.coal  .kpi-val { color: #444; }
+.kpi-chg { font-size: 0.71rem; color: #5a6a80; margin-top: 4px; }
+.kpi-chg.up   { color: #2a8a2a; }
+.kpi-chg.down { color: #c0392b; }
+
+.note {
+  font-size: 0.7rem;
+  color: #6a7a90;
+  margin-top: 10px;
+  line-height: 1.65;
+  border-top: 1px solid #e8f0fa;
+  padding-top: 8px;
+}
+#status { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📈 Дългосрочни тенденции — БГ Eнергетика</h1>
+  <a href="index.html">← Табло</a>
+</header>
+
+<div class="page">
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Цена · Слънчева · Въглища — 365-дневна плъзгаща средна (2015–2026)</span>
+      <div class="controls">
+        <button class="btn active-price" id="btn-price" onclick="toggle('price')">💶 Цена</button>
+        <button class="btn active-solar" id="btn-solar" onclick="toggle('solar')">☀️ Слънчева</button>
+        <button class="btn active-coal"  id="btn-coal"  onclick="toggle('coal')">🏭 Въглища</button>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="kpi-row" id="kpi-row" style="display:none">
+        <div class="kpi price">
+          <div class="kpi-label" id="kl-price">Цена — 365д MA (Ember)</div>
+          <div class="kpi-val" id="kv-price">—</div>
+          <div class="kpi-chg" id="kc-price"></div>
+        </div>
+        <div class="kpi solar">
+          <div class="kpi-label">Слънчева — 365д MA</div>
+          <div class="kpi-val" id="kv-solar">—</div>
+          <div class="kpi-chg" id="kc-solar"></div>
+        </div>
+        <div class="kpi coal">
+          <div class="kpi-label">Въглища — 365д MA</div>
+          <div class="kpi-val" id="kv-coal">—</div>
+          <div class="kpi-chg" id="kc-coal"></div>
+        </div>
+      </div>
+
+      <div id="status">Зареждане…</div>
+      <div id="chart"></div>
+
+      <div class="note">
+        <b>Цени:</b> Ember Climate, Day-Ahead пазар (EUR/MWh), от 2016 г.
+        Реални EUR: дефлирани с EU HICP спрямо последния наличен месец в данните.
+        <br><b>Слънчева:</b> ЕСО СКАДА (ФЕЦ) + ENTSOE.
+        <br><b>Въглища:</b> Кондензационни ТЕЦ + Топлофикационни ТЕЦ + Заводски ТЕЦ (ЕСО СКАДА) + ENTSOE.
+        <br>Генерацията е в <b>TWh/год.</b> (годишен еквивалент). Последните ~182 дни нямат пълен 365д прозорец.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+const DATA_URL = (location.hostname === 'localhost' || location.protocol === 'file:')
+  ? '../eso-data/data/trends_daily.json'
+  : 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data/trends_daily.json';
+
+const MW_TO_TWH = 8760 / 1e6;
+
+const vis = { price: true, solar: true, coal: true };
+let plotData = null;
+
+function toggle(key) {
+  vis[key] = !vis[key];
+  const btn = document.getElementById('btn-' + key);
+  btn.className = 'btn' + (vis[key] ? ' active-' + key : '');
+  if (plotData) render();
+}
+
+function rollingMean(arr, W) {
+  const out = new Array(arr.length).fill(null);
+  let sum = 0, n = 0, buf = [];
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    if (v != null) { sum += v; n++; }
+    buf.push(v);
+    if (buf.length > W) { const old = buf.shift(); if (old != null) { sum -= old; n--; } }
+    out[i] = (buf.length === W && n >= W * 0.6) ? sum / n : null;
+  }
+  return out;
+}
+
+function lastNonNull(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return { val: arr[i], idx: i };
+  return null;
+}
+
+function idxAtDate(days, targetDate) {
+  for (let i = 0; i < days.length; i++) if (days[i] >= targetDate) return i;
+  return -1;
+}
+
+function kpiChgEl(elId, now, then, unit, decimals, lowerIsBetter) {
+  const el = document.getElementById(elId);
+  if (now == null || then == null) { el.textContent = ''; return; }
+  const delta = now - then;
+  const pct = (delta / then * 100).toFixed(0);
+  const sign = delta >= 0 ? '+' : '';
+  const up = delta > 0;
+  el.textContent = `${sign}${delta.toFixed(decimals)} ${unit} (${sign}${pct}%) за 3 год.`;
+  el.className = 'kpi-chg ' + ((lowerIsBetter ? !up : up) ? 'up' : 'down');
+}
+
+function updatePriceKpi() {
+  const { days, maPrice } = plotData;
+  const last = lastNonNull(maPrice);
+  if (!last) return;
+  const refDate = new Date(days[last.idx]);
+  refDate.setFullYear(refDate.getFullYear() - 3);
+  const i3 = idxAtDate(days, refDate.toISOString().slice(0, 10));
+  const now = last.val;
+  const then = i3 >= 0 ? maPrice[i3] : null;
+  document.getElementById('kv-price').textContent = now != null ? now.toFixed(1) + ' EUR/MWh' : '—';
+  kpiChgEl('kc-price', now, then, 'EUR/MWh', 1, true);
+}
+
+function setKpis(days, maSolar, maCoal) {
+  const last = lastNonNull(maSolar) || lastNonNull(maCoal);
+  if (!last) return;
+
+  const refDate = new Date(days[last.idx]);
+  refDate.setFullYear(refDate.getFullYear() - 3);
+  const i3 = idxAtDate(days, refDate.toISOString().slice(0, 10));
+
+  const sNow = lastNonNull(maSolar)?.val; const s3 = i3 >= 0 ? maSolar[i3] : null;
+  const cNow = lastNonNull(maCoal)?.val;  const c3 = i3 >= 0 ? maCoal[i3]  : null;
+
+  document.getElementById('kv-solar').textContent = sNow != null ? sNow.toFixed(2) + ' TWh/год.' : '—';
+  document.getElementById('kv-coal').textContent  = cNow != null ? cNow.toFixed(2) + ' TWh/год.' : '—';
+  kpiChgEl('kc-solar', sNow, s3, 'TWh/год.', 2, false);
+  kpiChgEl('kc-coal',  cNow, c3, 'TWh/год.', 2, true);
+
+  document.getElementById('kpi-row').style.display = '';
+}
+
+function mwToTwh(arr) {
+  return arr.map(v => v != null ? +(v * MW_TO_TWH).toFixed(4) : null);
+}
+
+function render() {
+  const { days, maPrice, maSolar, maCoal } = plotData;
+  const maSolarTwh = mwToTwh(maSolar);
+  const maCoalTwh  = mwToTwh(maCoal);
+
+  const traces = [];
+  const C = { price: '#1a6fbf', solar: '#c87800', coal: '#666' };
+
+  if (vis.price) traces.push({ x: days, y: maPrice,    name: 'Цена 365д MA (EUR/MWh)',         yaxis:'y1', mode:'lines', line:{color:C.price, width:3} });
+  if (vis.solar) traces.push({ x: days, y: maSolarTwh,    name: 'Слънчева 365д MA (TWh/год.)',yaxis:'y2', mode:'lines', line:{color:C.solar, width:3} });
+  if (vis.coal)  traces.push({ x: days, y: maCoalTwh,     name: 'Въглища 365д MA (TWh/год.)', yaxis:'y2', mode:'lines', line:{color:C.coal,  width:3, dash:'dot'} });
+
+  Plotly.react('chart', traces, {
+    height: 620,
+    margin: { t: 16, r: 80, b: 52, l: 68 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 11 } },
+    yaxis: {
+      title: { text: 'Цена (EUR/MWh)', font: { color: C.price, size: 12 } },
+      tickfont: { color: C.price, size: 11 },
+      gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
+    },
+    yaxis2: {
+      title: { text: 'Генерация (TWh/год.)', font: { color: '#555', size: 12 } },
+      tickfont: { color: '#555', size: 11 },
+      overlaying: 'y', side: 'right', showgrid: false, rangemode: 'tozero', zeroline: false,
+    },
+    legend: { orientation: 'h', y: -0.18, x: 0.5, xanchor: 'center', font: { size: 11 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    hovermode: 'x unified', hoverlabel: { font: { size: 11 } },
+  }, { responsive: true, displayModeBar: false });
+}
+
+async function main() {
+  const data = await fetch(DATA_URL).then(r => r.json());
+  const W = 365;
+  const maSolar = rollingMean(data.solar, W);
+  const maCoal  = rollingMean(data.coal,  W);
+
+  plotData = {
+    days: data.days,
+    maPrice: rollingMean(data.price, W),
+    maSolar, maCoal,
+  };
+
+  document.getElementById('status').style.display = 'none';
+  updatePriceKpi();
+  setKpis(data.days,
+    maSolar.map(v => v != null ? +(v * MW_TO_TWH).toFixed(4) : null),
+    maCoal.map(v  => v != null ? +(v * MW_TO_TWH).toFixed(4) : null));
+  render();
+}
+
+main();
+</script>
+</body>
+</html>
