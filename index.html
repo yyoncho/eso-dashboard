@@ -2029,7 +2029,7 @@ async function refresh() {
     updateTotalStats(displayBinned, pd, dateStr);
     drawTariffPanel(pd, displayBinned, dateStr, null, _loadProfile);
     await loadRecords();
-    updateRecordAlerts(allRecords, displayBinned, dateStr);
+    updateRecordAlerts(allRecords, binned, dateStr);
 
   } catch(e) {
     console.error(e);
