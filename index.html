@@ -1118,9 +1118,11 @@ function battState(mw) {
 
 function updateStatusCards(latest, pd) {
   if (!latest) return;
-  const load = latest['load_mw'] || latest['Товар на РБ'] || 0;
-  const gen  = latest['gen_total_mw'] || 0;
-  const nImp = latest['net_import_mw'] || 0;
+  const load    = latest['load_mw'] || latest['Товар на РБ'] || 0;
+  const genBase = latest['gen_total_mw'] || 0;
+  const battDis = Math.max(0, latest['batt_discharge_mw'] || 0);
+  const gen     = genBase + battDis;
+  const nImp    = latest['net_import_mw'] || 0;
   document.getElementById('s-load').textContent = fmt0(load);
   document.getElementById('s-gen').textContent  = fmt0(gen);
 
