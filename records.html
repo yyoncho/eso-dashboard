@@ -493,6 +493,7 @@ function renderChart(key, r, h) {
 
   const xc = xaxisConfig(h.since || '2015');
   const layout = {
+    dragmode: false,
     margin: { t: 10, r: 20, b: 40, l: 55 },
     paper_bgcolor: '#fff', plot_bgcolor: '#fff',
     xaxis: {
@@ -590,6 +591,7 @@ function showDayModal(date) {
   ];
 
   const layout = {
+    dragmode: false,
     barmode: 'stack',
     xaxis: { tickvals: xlabels.filter((_, i) => i % 3 === 0), ticktext: xlabels.filter((_, i) => i % 3 === 0), tickfont: { size: 11 } },
     yaxis: { ticksuffix: ' MW', gridcolor: '#f0f3f8', tickfont: { size: 11 } },

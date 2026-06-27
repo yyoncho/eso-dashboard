@@ -258,6 +258,7 @@ function render() {
   if (vis.coal)  traces.push({ x: days, y: maCoalTwh,     name: 'Въглища 365д MA (TWh/год.)', yaxis:'y2', mode:'lines', line:{color:C.coal,  width:3, dash:'dot'} });
 
   Plotly.react('chart', traces, {
+    dragmode: false,
     height: 620,
     margin: { t: 16, r: 80, b: 52, l: 68 },
     xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 11 } },
