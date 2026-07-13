@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IBEX SDAC Curve Viewer</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="i18n.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -146,6 +147,7 @@ select:focus, input[type=date]:focus { outline: 2px solid #ffd700; }
     </div>
   </div>
   <a class="back-link" href="index.html">← Dashboard</a>
+  <span id="lang-flags" style="margin-left:6px;"></span>
 
   <div class="controls">
     <button class="nav-btn" id="btn-prev" onclick="step(-1)">&#8592;</button>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>БГ Мрежов Монитор — неофициален</title>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="i18n.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: Arial, Helvetica, sans-serif; background: #eef3f8; color: #1a2233; font-size: 14px; }
@@ -257,6 +258,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
       <div class="live-badge">
         <div class="dot" id="dot"></div>
         <span id="ts-label">Зареждане…</span>
+        <span id="lang-flags" style="margin-left:8px;"></span>
       </div>
       <div class="day-nav">
         <button class="nav-btn" id="prev-btn" onclick="shiftDay(-1)">&#8592;</button>

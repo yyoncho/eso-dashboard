@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Рекорди — БГ Мрежов Монитор</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="i18n.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -201,6 +202,7 @@ tr:hover td { background: #f8fafc; }
     </div>
   </div>
   <a class="back-link" href="index.html">← Табло</a>
+  <span id="lang-flags" style="margin-left:10px;"></span>
 </header>
 
 <main>
@@ -281,9 +283,11 @@ tr:hover td { background: #f8fafc; }
 </div>
 
 <script>
-const BASE = location.hostname === 'localhost'
-  ? '/data'
-  : 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data';
+const REMOTE_BASE = 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data';
+// Local dev: server usually runs from the entso-e root, where the data-branch
+// worktree sits at /eso-data/data. Falls back to the remote data branch when
+// the local copy is missing (see getJSON).
+const BASE = location.hostname === 'localhost' ? '/eso-data/data' : REMOTE_BASE;
 
 const JSONL_START = '2026-05-01';
 
@@ -299,8 +303,11 @@ const ORDER = [
 ];
 
 async function getJSON(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(url);
+  let r = await fetch(url).catch(() => null);
+  if ((!r || !r.ok) && BASE !== REMOTE_BASE && url.startsWith(BASE)) {
+    r = await fetch(REMOTE_BASE + url.slice(BASE.length)).catch(() => null);
+  }
+  if (!r || !r.ok) throw new Error(url);
   return r.json();
 }
 
