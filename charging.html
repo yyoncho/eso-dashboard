@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Дневно зареждане — ССЕЕ и помпи</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="i18n.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: #eef3f8; color: #1a2233; font-size: 14px; }
+
+header {
+  background: linear-gradient(180deg, #004494 0%, #003070 100%);
+  color: #fff;
+  border-bottom: 3px solid #ffd700;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1rem; font-weight: 700; }
+header a  { color: rgba(255,255,255,0.72); font-size: 0.78rem; text-decoration: none; }
+header a:hover { color: #fff; }
+
+.page { max-width: 1120px; margin: 0 auto; padding: 16px; }
+
+.panel {
+  background: #fff;
+  border: 1px solid #c5d8ee;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.panel-header {
+  background: #e8f0fa;
+  border-bottom: 1px solid #c5d8ee;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #003070;
+}
+.panel-body { padding: 14px 16px; }
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr; } }
+
+.kpi {
+  border-radius: 5px;
+  padding: 11px 14px;
+  border: 1px solid;
+}
+.kpi.batt  { background: #efeefb; border-color: #c9c6ee; }
+.kpi.pumps { background: #e9f6fe; border-color: #b3e0f8; }
+.kpi.total { background: #f5f5f5; border-color: #d0d0d0; }
+.kpi-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; color: #6a7a90; margin-bottom: 4px; }
+.kpi-val   { font-size: 1.3rem; font-weight: 700; line-height: 1.1; }
+.kpi.batt  .kpi-val { color: #544fc5; }
+.kpi.pumps .kpi-val { color: #147ab8; }
+.kpi.total .kpi-val { color: #444; }
+.kpi-sub { font-size: 0.71rem; color: #5a6a80; margin-top: 4px; }
+
+.note {
+  font-size: 0.7rem;
+  color: #6a7a90;
+  margin-top: 10px;
+  line-height: 1.65;
+  border-top: 1px solid #e8f0fa;
+  padding-top: 8px;
+}
+#status { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔋 Дневно зареждане — ССЕЕ и помпи</h1>
+  <a href="index.html">← Табло</a>
+  <span id="lang-flags" style="margin-left:10px;"></span>
+</header>
+
+<div class="page">
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Дневна енергия за зареждане от 3 юни 2026 — батерии (ССЕЕ) и помпи (ПАВЕЦ)</span>
+    </div>
+    <div class="panel-body">
+
+      <div class="kpi-row" id="kpi-row" style="display:none">
+        <div class="kpi batt">
+          <div class="kpi-label">Батерии — средно на ден</div>
+          <div class="kpi-val" id="kv-batt">—</div>
+          <div class="kpi-sub" id="ks-batt"></div>
+        </div>
+        <div class="kpi pumps">
+          <div class="kpi-label">Помпи — средно на ден</div>
+          <div class="kpi-val" id="kv-pumps">—</div>
+          <div class="kpi-sub" id="ks-pumps"></div>
+        </div>
+        <div class="kpi total">
+          <div class="kpi-label">Общо — средно на ден</div>
+          <div class="kpi-val" id="kv-total">—</div>
+          <div class="kpi-sub" id="ks-total"></div>
+        </div>
+      </div>
+
+      <div id="status">Зареждане…</div>
+      <div id="chart"></div>
+
+      <div class="note">
+        <b>Данни:</b> ЕСО SCADA, 5-минутни снимки от 3 юни 2026 (пускане на помпите на ПАВЕЦ Чаира).
+        Дневна енергия = сума от мощността на зареждане × 5 мин.
+        <br><b>Батерии (ССЕЕ):</b> само зареждане (отрицателни стойности на ССЕЕ).
+        <b>Помпи:</b> помпен режим на ПАВЕЦ (доминиран от Чаира).
+        <br><b>Жълта линия:</b> номинален капацитет на резервоара на ПАВЕЦ Чаира (~6.4 ГВтч) — колко енергия побира един пълен резервоар за сравнение с дневното зареждане.
+        <br>Дни с непълни данни (под 270 от 288 снимки) са пропуснати.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+const REMOTE_BASE = 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data';
+const BASE = location.hostname === 'localhost' ? '/eso-data/data' : REMOTE_BASE;
+
+const START_DATE = '2026-06-03';
+const MIN_SNAPSHOTS = 270;           // full day = 288 five-minute polls
+const CHAIRA_STORAGE_GWH = 6.4;      // nominal Chaira reservoir capacity
+const INTERVAL_H = 5 / 60;
+
+async function getText(url) {
+  let r = await fetch(url).catch(() => null);
+  if ((!r || !r.ok) && BASE !== REMOTE_BASE && url.startsWith(BASE)) {
+    r = await fetch(REMOTE_BASE + url.slice(BASE.length)).catch(() => null);
+  }
+  if (!r || !r.ok) return null;
+  return r.text();
+}
+
+async function loadDay(date) {
+  const txt = await getText(`${BASE}/${date}.jsonl`);
+  if (txt == null) return null;
+  const lines = txt.trim().split('\n');
+  let batt = 0, pumps = 0, n = 0;
+  for (const line of lines) {
+    let r;
+    try { r = JSON.parse(line); } catch (_) { continue; }
+    n++;
+    batt  += (r.batt_charge_mw || 0) * INTERVAL_H;
+    pumps += (r.pumps_mw || 0) * INTERVAL_H;
+  }
+  if (n < MIN_SNAPSHOTS) return null;   // skip incomplete days (data gaps, today)
+  return { date, batt: batt / 1000, pumps: pumps / 1000 };
+}
+
+function setKpis(days) {
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const batts  = days.map(d => d.batt);
+  const pumpss = days.map(d => d.pumps);
+  const totals = days.map(d => d.batt + d.pumps);
+  document.getElementById('kv-batt').textContent  = avg(batts).toFixed(2) + ' ГВтч';
+  document.getElementById('kv-pumps').textContent = avg(pumpss).toFixed(2) + ' ГВтч';
+  document.getElementById('kv-total').textContent = avg(totals).toFixed(2) + ' ГВтч';
+  document.getElementById('ks-batt').textContent  = 'макс ' + Math.max(...batts).toFixed(2) + ' ГВтч';
+  document.getElementById('ks-pumps').textContent = 'макс ' + Math.max(...pumpss).toFixed(2) + ' ГВтч';
+  document.getElementById('ks-total').textContent = 'макс ' + Math.max(...totals).toFixed(2) + ' ГВтч';
+  document.getElementById('kpi-row').style.display = '';
+}
+
+function render(days) {
+  const x = days.map(d => d.date);
+  const traces = [
+    {
+      x, y: days.map(d => +d.pumps.toFixed(3)),
+      name: 'Помпи (ПАВЕЦ)', type: 'bar',
+      marker: { color: '#2caffe', line: { color: '#fff', width: 1 } },
+      hovertemplate: '%{x}<br>Помпи: %{y:.2f} ГВтч<extra></extra>',
+    },
+    {
+      x, y: days.map(d => +d.batt.toFixed(3)),
+      name: 'Батерии (ССЕЕ)', type: 'bar',
+      marker: { color: '#544fc5', line: { color: '#fff', width: 1 } },
+      hovertemplate: '%{x}<br>Батерии: %{y:.2f} ГВтч<extra></extra>',
+    },
+  ];
+
+  Plotly.newPlot('chart', traces, {
+    barmode: 'stack',
+    dragmode: false,
+    height: 520,
+    margin: { t: 30, r: 16, b: 64, l: 56 },
+    xaxis: { type: 'category', tickangle: -55, tickfont: { size: 10 }, showgrid: false },
+    yaxis: {
+      title: { text: 'ГВтч/ден', font: { size: 12, color: '#5a6a80' } },
+      tickfont: { size: 11 },
+      gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
+    },
+    shapes: [{
+      type: 'line', xref: 'paper', x0: 0, x1: 1,
+      y0: CHAIRA_STORAGE_GWH, y1: CHAIRA_STORAGE_GWH,
+      line: { color: '#ffd700', width: 2.5 },
+    }],
+    annotations: [{
+      xref: 'paper', x: 0.995, xanchor: 'right',
+      y: CHAIRA_STORAGE_GWH, yanchor: 'bottom', yshift: 2,
+      text: 'Номинален капацитет на резервоара на Чаира ~6.4 ГВтч',
+      showarrow: false, font: { size: 11, color: '#333' },
+      bgcolor: 'rgba(255,255,255,0.9)', borderpad: 2,
+    }],
+    legend: { orientation: 'h', y: -0.28, x: 0.5, xanchor: 'center', font: { size: 11 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    hovermode: 'closest',
+  }, { responsive: true, displayModeBar: false });
+}
+
+async function main() {
+  const statusEl = document.getElementById('status');
+  try {
+    const idx = JSON.parse(await getText(`${BASE}/index.json`));
+    const dates = idx.dates.filter(d => d >= START_DATE);
+    const results = await Promise.all(dates.map(loadDay));
+    const days = results.filter(Boolean);
+    if (!days.length) throw new Error('no data');
+    statusEl.style.display = 'none';
+    setKpis(days);
+    render(days);
+  } catch (e) {
+    statusEl.textContent = 'Грешка при зареждане на данните: ' + e.message;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
