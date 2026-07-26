@@ -28,10 +28,10 @@
     "snap_ts": "2026-07-20T08:55:03Z"
   },
   "chg_gwh_day": {
-    "val": 13.4,
+    "val": 13.5,
     "label": "Зареждане за ден",
     "unit": "GWh",
-    "date": "2026-07-23",
+    "date": "2026-07-26",
     "snap_ts": null
   },
   "batt_dis": {
