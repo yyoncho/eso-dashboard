@@ -112,8 +112,8 @@
     ['TWh/год.', 'TWh/yr'],
 
     // ═══ charging.html ═══
-    ['Дневна енергия за зареждане от 3 юни 2026 — батерии (ССЕЕ) и помпи (ПАВЕЦ)',
-     'Daily charging energy since 3 June 2026 — batteries (BESS) and pumps (PSH)'],
+    ['Дневна енергия за зареждане, последните 35 дни — батерии (ССЕЕ) и помпи (ПАВЕЦ)',
+     'Daily charging energy, last 35 days — batteries (BESS) and pumps (PSH)'],
     ['Дневно зареждане — ССЕЕ и помпи', 'Daily charging — BESS & pumps'],
     ['Дневно зареждане', 'Daily charging'],
     ['ЕСО SCADA, 5-минутни снимки от 3 юни 2026 (пускане на помпите на ПАВЕЦ Чаира).',

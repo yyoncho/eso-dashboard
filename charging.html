@@ -89,7 +89,7 @@ header a:hover { color: #fff; }
 
   <div class="panel">
     <div class="panel-header">
-      <span>Дневна енергия за зареждане от 3 юни 2026 — батерии (ССЕЕ) и помпи (ПАВЕЦ)</span>
+      <span>Дневна енергия за зареждане, последните 35 дни — батерии (ССЕЕ) и помпи (ПАВЕЦ)</span>
     </div>
     <div class="panel-body">
 
@@ -193,13 +193,13 @@ function render(days) {
   const traces = [
     {
       x, y: days.map(d => +d.pumps.toFixed(3)),
-      name: 'Помпи (ПАВЕЦ)', type: 'bar', width: 0.46,
+      name: 'Помпи (ПАВЕЦ)', type: 'bar', width: 0.49,
       marker: { color: '#2caffe', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Помпи: %{y:.2f} ГВтч<extra></extra>',
     },
     {
       x, y: days.map(d => +d.batt.toFixed(3)),
-      name: 'Батерии (ССЕЕ)', type: 'bar', width: 0.46,
+      name: 'Батерии (ССЕЕ)', type: 'bar', width: 0.49,
       marker: { color: '#544fc5', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Батерии: %{y:.2f} ГВтч<extra></extra>',
     },
@@ -223,8 +223,8 @@ function render(days) {
 
   Plotly.newPlot('chart', traces, {
     barmode: 'group',
-    bargap: 0.3,
-    bargroupgap: 0.02,
+    bargap: 0.22,
+    bargroupgap: 0.0,
     dragmode: false,
     height: 520,
     margin: { t: 30, r: 16, b: 64, l: 56 },
@@ -256,7 +256,7 @@ async function main() {
     const dates = idx.dates.filter(d => d >= START_DATE);
     if (!dates.includes(today)) dates.push(today);
     const results = await Promise.all(dates.map(d => loadDay(d, today)));
-    const days = results.filter(Boolean);
+    const days = results.filter(Boolean).slice(-35);
     if (!days.length) throw new Error('no data');
     statusEl.style.display = 'none';
     setKpis(days.filter(d => !d.partial));
