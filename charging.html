@@ -119,7 +119,7 @@ header a:hover { color: #fff; }
         Дневна енергия = сума от мощността на зареждане × 5 мин.
         <br><b>Батерии (ССЕЕ):</b> само зареждане (отрицателни стойности на ССЕЕ).
         <b>Помпи:</b> помпен режим на ПАВЕЦ (доминиран от Чаира).
-        <br><b>Жълта линия:</b> номинален капацитет на резервоара на ПАВЕЦ Чаира (~6.4 ГВтч) — колко енергия побира един пълен резервоар за сравнение с дневното зареждане.
+        <br><b>Жълта линия</b> (кликнете в легендата, за да я покажете): номинален капацитет на резервоара на ПАВЕЦ Чаира (~6.4 ГВтч) — колко енергия побира един пълен резервоар за сравнение с дневното зареждане.
         <br><b>Оранжеви ленти:</b> съботно-неделни дни.
         <br>Дни с непълни данни (под 270 от 288 снимки) са пропуснати, освен днешния ден (маркиран с *), който е частичен и се допълва.
       </div>
@@ -203,6 +203,13 @@ function render(days) {
       marker: { color: '#544fc5', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Батерии: %{y:.2f} ГВтч<extra></extra>',
     },
+    {
+      x, y: x.map(() => CHAIRA_STORAGE_GWH),
+      name: 'Резервоар Чаира (~6.4 ГВтч)', type: 'scatter', mode: 'lines',
+      line: { color: '#ffd700', width: 2.5 },
+      visible: 'legendonly',
+      hovertemplate: 'Резервоар Чаира: %{y} ГВтч<extra></extra>',
+    },
   ];
 
   const weekendShapes = days
@@ -214,12 +221,6 @@ function render(days) {
       fillcolor: '#f0a500', opacity: 0.10, line: { width: 0 },
       layer: 'below',
     }));
-
-  const chairaShape = {
-    type: 'line', xref: 'paper', x0: 0, x1: 1,
-    y0: CHAIRA_STORAGE_GWH, y1: CHAIRA_STORAGE_GWH,
-    line: { color: '#ffd700', width: 2.5 },
-  };
 
   Plotly.newPlot('chart', traces, {
     barmode: 'group',
@@ -234,14 +235,7 @@ function render(days) {
       tickfont: { size: 11 },
       gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
     },
-    shapes: [...weekendShapes, chairaShape],
-    annotations: [{
-      xref: 'paper', x: 0.995, xanchor: 'right',
-      y: CHAIRA_STORAGE_GWH, yanchor: 'bottom', yshift: 2,
-      text: 'Номинален капацитет на резервоара на Чаира ~6.4 ГВтч',
-      showarrow: false, font: { size: 11, color: '#333' },
-      bgcolor: 'rgba(255,255,255,0.9)', borderpad: 2,
-    }],
+    shapes: weekendShapes,
     legend: { orientation: 'h', y: -0.28, x: 0.5, xanchor: 'center', font: { size: 11 } },
     plot_bgcolor: '#fff', paper_bgcolor: '#fff',
     hovermode: 'closest',
