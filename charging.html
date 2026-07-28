@@ -120,7 +120,8 @@ header a:hover { color: #fff; }
         <br><b>Батерии (ССЕЕ):</b> само зареждане (отрицателни стойности на ССЕЕ).
         <b>Помпи:</b> помпен режим на ПАВЕЦ (доминиран от Чаира).
         <br><b>Жълта линия:</b> номинален капацитет на резервоара на ПАВЕЦ Чаира (~6.4 ГВтч) — колко енергия побира един пълен резервоар за сравнение с дневното зареждане.
-        <br>Дни с непълни данни (под 270 от 288 снимки) са пропуснати.
+        <br><b>Оранжеви ленти:</b> съботно-неделни дни.
+        <br>Дни с непълни данни (под 270 от 288 снимки) са пропуснати, освен днешния ден (маркиран с *), който е частичен и се допълва.
       </div>
     </div>
   </div>
@@ -147,7 +148,16 @@ async function getText(url) {
   return r.text();
 }
 
-async function loadDay(date) {
+function todayBG() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Sofia' }).format(new Date());
+}
+
+function isWeekend(dateStr) {
+  const day = new Date(dateStr + 'T00:00:00Z').getUTCDay();
+  return day === 0 || day === 6;
+}
+
+async function loadDay(date, today) {
   const txt = await getText(`${BASE}/${date}.jsonl`);
   if (txt == null) return null;
   const lines = txt.trim().split('\n');
@@ -159,8 +169,9 @@ async function loadDay(date) {
     batt  += (r.batt_charge_mw || 0) * INTERVAL_H;
     pumps += (r.pumps_mw || 0) * INTERVAL_H;
   }
-  if (n < MIN_SNAPSHOTS) return null;   // skip incomplete days (data gaps, today)
-  return { date, batt: batt / 1000, pumps: pumps / 1000 };
+  // skip incomplete days (data gaps) but always keep today, however partial
+  if (n < MIN_SNAPSHOTS && date !== today) return null;
+  return { date, batt: batt / 1000, pumps: pumps / 1000, partial: n < MIN_SNAPSHOTS };
 }
 
 function setKpis(days) {
@@ -178,24 +189,40 @@ function setKpis(days) {
 }
 
 function render(days) {
-  const x = days.map(d => d.date);
+  const x = days.map(d => d.date + (d.partial ? ' *' : ''));
   const traces = [
     {
       x, y: days.map(d => +d.pumps.toFixed(3)),
-      name: 'Помпи (ПАВЕЦ)', type: 'bar',
+      name: 'Помпи (ПАВЕЦ)', type: 'bar', width: 0.72,
       marker: { color: '#2caffe', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Помпи: %{y:.2f} ГВтч<extra></extra>',
     },
     {
       x, y: days.map(d => +d.batt.toFixed(3)),
-      name: 'Батерии (ССЕЕ)', type: 'bar',
+      name: 'Батерии (ССЕЕ)', type: 'bar', width: 0.36,
       marker: { color: '#544fc5', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Батерии: %{y:.2f} ГВтч<extra></extra>',
     },
   ];
 
+  const weekendShapes = days
+    .map((d, i) => ({ i, wknd: isWeekend(d.date) }))
+    .filter(d => d.wknd)
+    .map(d => ({
+      type: 'rect', xref: 'x', yref: 'paper',
+      x0: d.i - 0.5, x1: d.i + 0.5, y0: 0, y1: 1,
+      fillcolor: '#f0a500', opacity: 0.10, line: { width: 0 },
+      layer: 'below',
+    }));
+
+  const chairaShape = {
+    type: 'line', xref: 'paper', x0: 0, x1: 1,
+    y0: CHAIRA_STORAGE_GWH, y1: CHAIRA_STORAGE_GWH,
+    line: { color: '#ffd700', width: 2.5 },
+  };
+
   Plotly.newPlot('chart', traces, {
-    barmode: 'stack',
+    barmode: 'overlay',
     dragmode: false,
     height: 520,
     margin: { t: 30, r: 16, b: 64, l: 56 },
@@ -205,11 +232,7 @@ function render(days) {
       tickfont: { size: 11 },
       gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
     },
-    shapes: [{
-      type: 'line', xref: 'paper', x0: 0, x1: 1,
-      y0: CHAIRA_STORAGE_GWH, y1: CHAIRA_STORAGE_GWH,
-      line: { color: '#ffd700', width: 2.5 },
-    }],
+    shapes: [...weekendShapes, chairaShape],
     annotations: [{
       xref: 'paper', x: 0.995, xanchor: 'right',
       y: CHAIRA_STORAGE_GWH, yanchor: 'bottom', yshift: 2,
@@ -226,13 +249,15 @@ function render(days) {
 async function main() {
   const statusEl = document.getElementById('status');
   try {
+    const today = todayBG();
     const idx = JSON.parse(await getText(`${BASE}/index.json`));
     const dates = idx.dates.filter(d => d >= START_DATE);
-    const results = await Promise.all(dates.map(loadDay));
+    if (!dates.includes(today)) dates.push(today);
+    const results = await Promise.all(dates.map(d => loadDay(d, today)));
     const days = results.filter(Boolean);
     if (!days.length) throw new Error('no data');
     statusEl.style.display = 'none';
-    setKpis(days);
+    setKpis(days.filter(d => !d.partial));
     render(days);
   } catch (e) {
     statusEl.textContent = 'Грешка при зареждане на данните: ' + e.message;
