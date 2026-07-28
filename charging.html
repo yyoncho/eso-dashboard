@@ -193,13 +193,13 @@ function render(days) {
   const traces = [
     {
       x, y: days.map(d => +d.pumps.toFixed(3)),
-      name: 'Помпи (ПАВЕЦ)', type: 'bar', width: 0.72,
+      name: 'Помпи (ПАВЕЦ)', type: 'bar', width: 0.46,
       marker: { color: '#2caffe', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Помпи: %{y:.2f} ГВтч<extra></extra>',
     },
     {
       x, y: days.map(d => +d.batt.toFixed(3)),
-      name: 'Батерии (ССЕЕ)', type: 'bar', width: 0.36,
+      name: 'Батерии (ССЕЕ)', type: 'bar', width: 0.46,
       marker: { color: '#544fc5', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Батерии: %{y:.2f} ГВтч<extra></extra>',
     },
@@ -222,7 +222,9 @@ function render(days) {
   };
 
   Plotly.newPlot('chart', traces, {
-    barmode: 'overlay',
+    barmode: 'group',
+    bargap: 0.3,
+    bargroupgap: 0.02,
     dragmode: false,
     height: 520,
     margin: { t: 30, r: 16, b: 64, l: 56 },
