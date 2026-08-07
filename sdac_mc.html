@@ -157,6 +157,17 @@ input[type="date"]#date-picker {
     </div>
 
     <div class="panel">
+      <div class="panel-header">🔋 Оптимален 4-часов интервал за батерия</div>
+      <div class="panel-body">
+        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
+          <div class="kpi"><div class="kpi-label">Зареждане (най-евтин 4ч)</div><div class="kpi-val" id="kv-batt-chg">—</div><div class="kpi-sub" id="ks-batt-chg"></div></div>
+          <div class="kpi"><div class="kpi-label">Разреждане (най-скъп 4ч)</div><div class="kpi-val" id="kv-batt-dis">—</div><div class="kpi-sub" id="ks-batt-dis"></div></div>
+          <div class="kpi money"><div class="kpi-label">Спред / приход на MW</div><div class="kpi-val" id="kv-batt-spread">—</div><div class="kpi-sub" id="ks-batt-spread"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-header">Часови цени — БГ / Гърция / Румъния</div>
       <div class="panel-body">
         <div id="chart-price"></div>
@@ -182,17 +193,6 @@ input[type="date"]#date-picker {
           <br><b>Данни:</b> IBEX SDAC Market Coupling, обновявани дневно около 16:00 ч. българско време.
           <br><b>Обвързана цена</b> = разлика &le; 1 EUR/MWh между пазарите. <b>Наситен капацитет</b> = използван поток &ge; 90% от наличния.
           <br><b>Капацитет за внос и износ не е еднакъв</b> — пунктираните линии на графиките за обмен показват реалния капацитет във всяка посока поотделно (горна = внос, долна = износ), не огледален еднакъв лимит.
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">🔋 Оптимален 4-часов интервал за батерия</div>
-      <div class="panel-body">
-        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
-          <div class="kpi"><div class="kpi-label">Зареждане (най-евтин 4ч)</div><div class="kpi-val" id="kv-batt-chg">—</div><div class="kpi-sub" id="ks-batt-chg"></div></div>
-          <div class="kpi"><div class="kpi-label">Разреждане (най-скъп 4ч)</div><div class="kpi-val" id="kv-batt-dis">—</div><div class="kpi-sub" id="ks-batt-dis"></div></div>
-          <div class="kpi money"><div class="kpi-label">Спред / приход на MW</div><div class="kpi-val" id="kv-batt-spread">—</div><div class="kpi-sub" id="ks-batt-spread"></div></div>
         </div>
       </div>
     </div>
@@ -489,7 +489,7 @@ function renderPriceChart(rows) {
   }, { responsive: true, displayModeBar: false });
 }
 
-function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, congKey, label, color) {
+function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, label, color) {
   // Display convention: + = import into BG. Underlying rows[].netKey stays
   // export-positive internally (used by the report/money-flow logic
   // elsewhere) -- only the plotted values are negated here.
@@ -497,8 +497,6 @@ function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, congKey
   // czc_gr_bg), so the envelope is NOT a mirrored/symmetric line -- the
   // upper (import) and lower (export) bounds are each their own real value.
   const x = rows.map(r => r.hour);
-  const congX = rows.filter(r => r[congKey]).map(r => r.hour);
-  const congY = rows.filter(r => r[congKey]).map(r => -r[netKey]);
   Plotly.newPlot(elId, [
     { x, y: rows.map(r => r[capImportKey]), name: `Капацитет за внос`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dot' }, hoverinfo: 'skip' },
@@ -507,13 +505,10 @@ function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, congKey
     { x, y: rows.map(r => -r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
       fill: 'tozeroy', fillcolor: color + '33', line: { color, width: 1.8 },
       hovertemplate: `%{x}<br>%{y:.0f} MW<extra></extra>` },
-    { x: congX, y: congY, name: 'Наситен капацитет', type: 'scatter', mode: 'markers',
-      marker: { color: '#c0392b', size: 6, symbol: 'circle', line: { color: '#fff', width: 1 } },
-      hovertemplate: `%{x}<br>наситен капацитет: %{y:.0f} MW<extra></extra>` },
   ], {
-    height: 220,
+    height: 340,
     margin: { t: 22, r: 16, b: 34, l: 52 },
-    title: { text: `БГ ↔ ${label}  (+ = внос в БГ; ● = наситен капацитет)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
+    title: { text: `БГ ↔ ${label}  (+ = внос в БГ)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
     xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
     yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
     showlegend: false,
@@ -603,8 +598,8 @@ async function loadDay(dateStr) {
   setBattery4h(rows);
   renderReport(buildReport(rows, solarChargeAvg));
   renderPriceChart(rows);
-  renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capImportGr', 'capExportGr', 'congestedGr', 'Гърция', COL.gr);
-  renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capImportRo', 'capExportRo', 'congestedRo', 'Румъния', COL.ro);
+  renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capImportGr', 'capExportGr', 'Гърция', COL.gr);
+  renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capImportRo', 'capExportRo', 'Румъния', COL.ro);
   renderRentChart(rows);
 
   updateNav(dateStr);
