@@ -183,9 +183,8 @@ input[type="date"]#date-picker {
     </div>
 
     <div class="panel">
-      <div class="panel-header">Пари от обмена (по интервали и натрупано)</div>
+      <div class="panel-header">ℹ️ Методология</div>
       <div class="panel-body">
-        <div id="chart-rent"></div>
         <div class="note">
           <b>Пари от обмена</b> = нетен поток (МВт) × ценова разлика (съсед − БГ) × продължителност на интервала, сумирано за ГР и РО. Положителна стойност = приход от коупъла (износ към по-скъп пазар или внос от по-евтин); не е реален паричен превод към ЕСО, а теоретична стойност на пазарното сближаване.
           <br><b>Реекспорт (транзит):</b> когато БГ едновременно внася от единия съсед и изнася към другия, припокриващият се обем се третира като преминаващ транзитно през БГ и се изважда — не се брои като печалба от собствена търговия на БГ.
@@ -374,7 +373,9 @@ function buildReport(rows, solarChargeAvg) {
     // peakers there) or is RO absorbing all of it, leaving none for GR?
     const peakExportGrAvg = avg(peak.map(r => r.netGr));
     const peakExportRoAvg = avg(peak.map(r => r.netRo));
-    if (peakExportGrAvg != null && peakExportGrAvg < 100 && peakExportRoAvg != null && peakExportRoAvg > 300) {
+    if (peakExportGrAvg != null && peakExportGrAvg < -100) {
+      add('🇬🇷', 'warn', `БГ внася от Гърция през пиковите часове (среден нетен поток ${N(Math.round(Math.abs(peakExportGrAvg)))} MW от ГР) — гръцките газови централи вероятно определят пределната цена в тези часове и изнасят към БГ, вместо обратното.`);
+    } else if (peakExportGrAvg != null && peakExportGrAvg < 100 && peakExportRoAvg != null && peakExportRoAvg > 300) {
       add('🔋', 'warn', `Няма съществен пиков износ към Гърция (среден нетен поток ${N(Math.round(peakExportGrAvg))} MW) — <b>Румъния поглъща по-голямата част от батерийния износ</b> през пика (среден нетен поток ${N(Math.round(peakExportRoAvg))} MW към РО), не оставяйки свободен капацитет за ГР.`);
     } else if (peakExportGrAvg != null && peakExportGrAvg > 200) {
       add('🔋', '', `Пиковият износ към Гърция (среден нетен поток ${N(Math.round(peakExportGrAvg))} MW) вероятно измества природен газ пикови централи там през тези часове.`);
@@ -527,26 +528,6 @@ function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, label, 
   }, { responsive: true, displayModeBar: false });
 }
 
-function renderRentChart(rows) {
-  const x = rows.map(r => r.hour);
-  let cum = 0;
-  const cumSeries = rows.map(r => (cum += (r.moneyFlow || 0)));
-  Plotly.newPlot('chart-rent', [
-    { x, y: rows.map(r => +(r.moneyFlow || 0).toFixed(0)), name: 'Пари от обмена', type: 'bar', marker: { color: COL.rent } },
-    { x, y: cumSeries, name: 'Натрупано (дясна ос е скрита — виж стойност в подсказка)', type: 'scatter', mode: 'lines',
-      line: { color: COL.bg, width: 2.5 }, yaxis: 'y2', hovertemplate: 'Натрупано: %{y:.0f} €<extra></extra>' },
-  ], {
-    height: 320,
-    margin: { t: 16, r: 52, b: 40, l: 52 },
-    barmode: 'relative',
-    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
-    yaxis: { title: { text: 'EUR / интервал', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
-    yaxis2: { overlaying: 'y', side: 'right', showgrid: false, tickfont: { size: 10, color: COL.bg }, title: { text: 'Натрупано, EUR', font: { size: 10, color: COL.bg } } },
-    legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 11 } },
-    plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
-  }, { responsive: true, displayModeBar: false });
-}
-
 function renderReport(items) {
   const el = document.getElementById('report-list');
   el.innerHTML = items.map(it => `<li class="${it.cls}" data-icon="${it.icon}">${it.html}</li>`).join('');
@@ -611,7 +592,6 @@ async function loadDay(dateStr) {
   renderPriceChart(rows);
   renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capImportGr', 'capExportGr', 'Гърция', COL.gr);
   renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capImportRo', 'capExportRo', 'Румъния', COL.ro);
-  renderRentChart(rows);
 
   updateNav(dateStr);
 }
