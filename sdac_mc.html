@@ -136,6 +136,17 @@ input[type="date"]#date-picker {
   <div id="content" style="display:none">
 
     <div class="panel">
+      <div class="panel-header">🔋 Оптимален 4-часов интервал за батерия</div>
+      <div class="panel-body">
+        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
+          <div class="kpi"><div class="kpi-label">Зареждане (най-евтин 4ч)</div><div class="kpi-val" id="kv-batt-chg">—</div><div class="kpi-sub" id="ks-batt-chg"></div></div>
+          <div class="kpi"><div class="kpi-label">Разреждане (най-скъп 4ч)</div><div class="kpi-val" id="kv-batt-dis">—</div><div class="kpi-sub" id="ks-batt-dis"></div></div>
+          <div class="kpi money"><div class="kpi-label">Спред / приход на MW</div><div class="kpi-val" id="kv-batt-spread">—</div><div class="kpi-sub" id="ks-batt-spread"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
       <div class="panel-header">Ключови показатели за деня</div>
       <div class="panel-body">
         <div class="kpi-row">
@@ -143,17 +154,6 @@ input[type="date"]#date-picker {
           <div class="kpi"><div class="kpi-label">Средна цена Гърция</div><div class="kpi-val" id="kv-gr">—</div></div>
           <div class="kpi"><div class="kpi-label">Средна цена Румъния</div><div class="kpi-val" id="kv-ro">—</div></div>
           <div class="kpi money"><div class="kpi-label">Пари от обмена (без реекспорт)</div><div class="kpi-val" id="kv-money">—</div><div class="kpi-sub" id="ks-money"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-header">🔋 Оптимален 4-часов интервал за батерия</div>
-      <div class="panel-body">
-        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
-          <div class="kpi"><div class="kpi-label">Зареждане (най-евтин 4ч)</div><div class="kpi-val" id="kv-batt-chg">—</div><div class="kpi-sub" id="ks-batt-chg"></div></div>
-          <div class="kpi"><div class="kpi-label">Разреждане (най-скъп 4ч)</div><div class="kpi-val" id="kv-batt-dis">—</div><div class="kpi-sub" id="ks-batt-dis"></div></div>
-          <div class="kpi money"><div class="kpi-label">Спред / приход на MW</div><div class="kpi-val" id="kv-batt-spread">—</div><div class="kpi-sub" id="ks-batt-spread"></div></div>
         </div>
       </div>
     </div>
@@ -442,8 +442,10 @@ function renderPriceChart(rows) {
   }, { responsive: true, displayModeBar: false });
 }
 
-function renderFlowPanel(elId, rows, netKey, capKey, label, color) {
+function renderFlowPanel(elId, rows, netKey, capKey, congKey, label, color) {
   const x = rows.map(r => r.hour);
+  const congX = rows.filter(r => r[congKey]).map(r => r.hour);
+  const congY = rows.filter(r => r[congKey]).map(r => r[netKey]);
   Plotly.newPlot(elId, [
     { x, y: rows.map(r => r[capKey]), name: `Наличен капацитет`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dot' }, hoverinfo: 'skip' },
@@ -452,10 +454,13 @@ function renderFlowPanel(elId, rows, netKey, capKey, label, color) {
     { x, y: rows.map(r => r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
       fill: 'tozeroy', fillcolor: color + '33', line: { color, width: 1.8 },
       hovertemplate: `%{x}<br>%{y:.0f} MW<extra></extra>` },
+    { x: congX, y: congY, name: 'Наситен капацитет', type: 'scatter', mode: 'markers',
+      marker: { color: '#c0392b', size: 6, symbol: 'circle', line: { color: '#fff', width: 1 } },
+      hovertemplate: `%{x}<br>наситен капацитет: %{y:.0f} MW<extra></extra>` },
   ], {
     height: 220,
     margin: { t: 22, r: 16, b: 34, l: 52 },
-    title: { text: `БГ ↔ ${label}  (+ = износ от БГ)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
+    title: { text: `БГ ↔ ${label}  (+ = износ от БГ; ● = наситен капацитет)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
     xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
     yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
     showlegend: false,
@@ -512,8 +517,8 @@ async function loadDay(dateStr) {
   setBattery4h(rows);
   renderReport(buildReport(rows));
   renderPriceChart(rows);
-  renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capGr', 'Гърция', COL.gr);
-  renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capRo', 'Румъния', COL.ro);
+  renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capGr', 'congestedGr', 'Гърция', COL.gr);
+  renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capRo', 'congestedRo', 'Румъния', COL.ro);
   renderRentChart(rows);
 
   updateNav(dateStr);
