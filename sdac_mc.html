@@ -82,6 +82,8 @@ input[type="date"]#date-picker {
 .kpi-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6a7a90; margin-bottom: 4px; }
 .kpi-val   { font-size: 1.22rem; font-weight: 700; line-height: 1.1; color: #003070; }
 .kpi-sub   { font-size: 0.7rem; color: #5a6a80; margin-top: 4px; }
+.kpi.money { background: #fff8ee; border-color: #f5d98a; }
+.kpi.money .kpi-val { color: #c87800; font-size: 1.4rem; }
 
 .report-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
 .report-list li {
@@ -140,9 +142,18 @@ input[type="date"]#date-picker {
           <div class="kpi"><div class="kpi-label">Средна цена БГ</div><div class="kpi-val" id="kv-bg">—</div></div>
           <div class="kpi"><div class="kpi-label">Средна цена Гърция</div><div class="kpi-val" id="kv-gr">—</div></div>
           <div class="kpi"><div class="kpi-label">Средна цена Румъния</div><div class="kpi-val" id="kv-ro">—</div></div>
-          <div class="kpi"><div class="kpi-label">Рента БГ↔ГР</div><div class="kpi-val" id="kv-rent-gr">—</div><div class="kpi-sub" id="ks-rent-gr"></div></div>
-          <div class="kpi"><div class="kpi-label">Рента БГ↔РО</div><div class="kpi-val" id="kv-rent-ro">—</div><div class="kpi-sub" id="ks-rent-ro"></div></div>
-          <div class="kpi"><div class="kpi-label">Обща рента за деня</div><div class="kpi-val" id="kv-rent-total">—</div></div>
+          <div class="kpi money"><div class="kpi-label">Пари от обмена (без реекспорт)</div><div class="kpi-val" id="kv-money">—</div><div class="kpi-sub" id="ks-money"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">🔋 Оптимален 4-часов интервал за батерия</div>
+      <div class="panel-body">
+        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
+          <div class="kpi"><div class="kpi-label">Зареждане (най-евтин 4ч)</div><div class="kpi-val" id="kv-batt-chg">—</div><div class="kpi-sub" id="ks-batt-chg"></div></div>
+          <div class="kpi"><div class="kpi-label">Разреждане (най-скъп 4ч)</div><div class="kpi-val" id="kv-batt-dis">—</div><div class="kpi-sub" id="ks-batt-dis"></div></div>
+          <div class="kpi money"><div class="kpi-label">Спред / приход на MW</div><div class="kpi-val" id="kv-batt-spread">—</div><div class="kpi-sub" id="ks-batt-spread"></div></div>
         </div>
       </div>
     </div>
@@ -170,13 +181,17 @@ input[type="date"]#date-picker {
     </div>
 
     <div class="panel">
-      <div class="panel-header">Паричен поток от рентата (по интервали и натрупано)</div>
+      <div class="panel-header">Пари от обмена (по интервали и натрупано)</div>
       <div class="panel-body">
         <div id="chart-rent"></div>
         <div class="note">
-          <b>Рента</b> (congestion rent) = нетен поток (МВт) × ценова разлика (съсед − БГ) × продължителност на интервала.
+          <b>Пари от обмена</b> = нетен поток (МВт) × ценова разлика (съсед − БГ) × продължителност на интервала, сумирано за ГР и РО.
           Положителна стойност = приход от коупъла (износ към по-скъп пазар или внос от по-евтин); не е реален паричен превод към ЕСО,
           а теоретична стойност на пазарното сближаване.
+          <br><b>Реекспорт (транзит):</b> когато БГ едновременно внася от единия съсед и изнася към другия, припокриващият се обем се третира като
+          преминаващ транзитно през БГ и се изважда — не се брои като печалба от собствена търговия на БГ.
+          <br><b>4-часова батерия:</b> търси се неприпокриващ се 4-часов прозорец с най-ниска средна цена (зареждане) и 4-часов прозорец с
+          най-висока средна цена (разреждане) в рамките на деня по БГ цената; приходът на MW е ориентировъчен, при 90% рундтрип ефективност.
           <br><b>Данни:</b> IBEX SDAC Market Coupling, обновявани дневно около 16:00 ч. българско време.
           <br><b>Обвързана цена</b> = разлика &le; 1 EUR/MWh между пазарите. <b>Наситен капацитет</b> = използван поток &ge; 90% от наличния.
         </div>
@@ -222,12 +237,26 @@ function analyze(day) {
   const p = day.periods;
 
   const rows = p.map(r => {
-    const netGr = (r.fl_bg_gr || 0) - (r.fl_gr_bg || 0);   // + = BG exports to GR
-    const netRo = (r.fl_bg_ro || 0) - (r.fl_ro_bg || 0);   // + = BG exports to RO
+    const impGr = r.fl_gr_bg || 0, expGr = r.fl_bg_gr || 0;   // BG<->GR, MW
+    const impRo = r.fl_ro_bg || 0, expRo = r.fl_bg_ro || 0;   // BG<->RO, MW
+    const netGr = expGr - impGr;   // + = BG exports to GR (raw, physical -- used for flow charts / congestion)
+    const netRo = expRo - impRo;   // + = BG exports to RO (raw, physical)
     const capGr = netGr >= 0 ? r.czc_bg_gr : r.czc_gr_bg;
     const capRo = netRo >= 0 ? r.czc_bg_ro : r.czc_ro_bg;
-    const rentGr = netGr * ((r.gr_price ?? r.bg_price) - r.bg_price) * stepH;
-    const rentRo = netRo * ((r.ro_price ?? r.bg_price) - r.bg_price) * stepH;
+
+    // Re-export / transit netting: when BG imports from one border and
+    // exports to the other in the same interval, the overlap is power
+    // simply passing through BG (GR->BG->RO or RO->BG->GR), not BG's own
+    // domestic market trading against BG's own price. Money flow should
+    // only count the genuine excess on each side, not the pass-through.
+    const transitGrToRo = Math.min(impGr, expRo);
+    const transitRoToGr = Math.min(impRo, expGr);
+    const adjNetGr = (expGr - transitRoToGr) - (impGr - transitGrToRo);
+    const adjNetRo = (expRo - transitGrToRo) - (impRo - transitRoToGr);
+    const moneyFlow = (adjNetGr * ((r.gr_price ?? r.bg_price) - r.bg_price) +
+                        adjNetRo * ((r.ro_price ?? r.bg_price) - r.bg_price)) * stepH;
+    const transitMw = transitGrToRo + transitRoToGr;
+
     return {
       hour: r.time_bg,
       bg: r.bg_price, gr: r.gr_price, ro: r.ro_price,
@@ -236,7 +265,7 @@ function analyze(day) {
       coupledRo: r.ro_price != null && Math.abs(r.ro_price - r.bg_price) <= COUPLE_EUR,
       congestedGr: capGr > 0 && Math.abs(netGr) >= CONGEST_UTIL * capGr,
       congestedRo: capRo > 0 && Math.abs(netRo) >= CONGEST_UTIL * capRo,
-      rentGr, rentRo,
+      moneyFlow, transitMw,
       localHour: parseInt(r.time_bg.split(':')[0], 10),
     };
   });
@@ -323,24 +352,77 @@ function buildReport(rows) {
   return items;
 }
 
-// ── KPI + rent totals ───────────────────────────────────────────────────────
+// ── KPI + money-flow totals ─────────────────────────────────────────────────
 function setKpis(rows) {
   document.getElementById('kv-bg').textContent = fmtPrice(avg(rows.map(r => r.bg)));
   document.getElementById('kv-gr').textContent = fmtPrice(avg(rows.map(r => r.gr)));
   document.getElementById('kv-ro').textContent = fmtPrice(avg(rows.map(r => r.ro)));
 
-  const rentGr = rows.reduce((s, r) => s + (r.rentGr || 0), 0);
-  const rentRo = rows.reduce((s, r) => s + (r.rentRo || 0), 0);
-  const exportGr = rows.reduce((s, r) => s + Math.max(0, r.netGr) * r._stepH, 0);
-  const importGr = rows.reduce((s, r) => s + Math.max(0, -r.netGr) * r._stepH, 0);
-  const exportRo = rows.reduce((s, r) => s + Math.max(0, r.netRo) * r._stepH, 0);
-  const importRo = rows.reduce((s, r) => s + Math.max(0, -r.netRo) * r._stepH, 0);
+  const money = rows.reduce((s, r) => s + (r.moneyFlow || 0), 0);
+  const transitMwh = rows.reduce((s, r) => s + (r.transitMw || 0) * r._stepH, 0);
 
-  document.getElementById('kv-rent-gr').textContent = fmtEUR(rentGr);
-  document.getElementById('ks-rent-gr').textContent = `износ ${exportGr.toFixed(0)} / внос ${importGr.toFixed(0)} МВч`;
-  document.getElementById('kv-rent-ro').textContent = fmtEUR(rentRo);
-  document.getElementById('ks-rent-ro').textContent = `износ ${exportRo.toFixed(0)} / внос ${importRo.toFixed(0)} МВч`;
-  document.getElementById('kv-rent-total').textContent = fmtEUR(rentGr + rentRo);
+  document.getElementById('kv-money').textContent = fmtEUR(money);
+  document.getElementById('ks-money').textContent = `изключен реекспорт: ${transitMwh.toFixed(0)} МВч`;
+}
+
+// ── best 4h charge/discharge window (BG price) ──────────────────────────────
+function bestSpread4h(rows) {
+  const winLen = Math.round(4 / rows[0]._stepH);
+  if (rows.length < winLen * 2) return null;
+
+  const prices = rows.map(r => r.bg);
+  if (prices.some(p => p == null)) return null;
+
+  const winAvg = (start) => {
+    let s = 0;
+    for (let i = start; i < start + winLen; i++) s += prices[i];
+    return s / winLen;
+  };
+
+  let best = null;
+  for (let cStart = 0; cStart <= rows.length - winLen; cStart++) {
+    const chgAvg = winAvg(cStart);
+    for (let dStart = 0; dStart <= rows.length - winLen; dStart++) {
+      // require non-overlapping windows
+      if (dStart < cStart + winLen && cStart < dStart + winLen) continue;
+      const disAvg = winAvg(dStart);
+      const spread = disAvg - chgAvg;
+      if (!best || spread > best.spread) {
+        best = { cStart, dStart, chgAvg, disAvg, spread };
+      }
+    }
+  }
+  if (!best || best.spread <= 0) return null;
+
+  return {
+    chgStart: rows[best.cStart].hour,
+    chgEnd: rows[Math.min(best.cStart + winLen, rows.length - 1)].hour,
+    disStart: rows[best.dStart].hour,
+    disEnd: rows[Math.min(best.dStart + winLen, rows.length - 1)].hour,
+    chgAvg: best.chgAvg,
+    disAvg: best.disAvg,
+    spread: best.spread,
+  };
+}
+
+function setBattery4h(rows) {
+  const b = bestSpread4h(rows);
+  if (!b) {
+    document.getElementById('kv-batt-chg').textContent = '—';
+    document.getElementById('kv-batt-dis').textContent = '—';
+    document.getElementById('kv-batt-spread').textContent = '—';
+    document.getElementById('ks-batt-spread').textContent = 'няма положителен спред за деня';
+    return;
+  }
+  const ROUND_TRIP_EFF = 0.90;
+  const revenuePerMW = 4 * (b.disAvg - b.chgAvg * (1 / ROUND_TRIP_EFF));
+
+  document.getElementById('kv-batt-chg').textContent = fmtPrice(b.chgAvg);
+  document.getElementById('ks-batt-chg').textContent = `${b.chgStart}–${b.chgEnd}`;
+  document.getElementById('kv-batt-dis').textContent = fmtPrice(b.disAvg);
+  document.getElementById('ks-batt-dis').textContent = `${b.disStart}–${b.disEnd}`;
+  document.getElementById('kv-batt-spread').textContent = b.spread.toFixed(1) + ' €/MWh';
+  document.getElementById('ks-batt-spread').textContent = `≈ ${fmtEUR(revenuePerMW)} / MW на цикъл (90% рундтрип ефективност)`;
 }
 
 // ── charts ───────────────────────────────────────────────────────────────
@@ -384,19 +466,18 @@ function renderFlowPanel(elId, rows, netKey, capKey, label, color) {
 function renderRentChart(rows) {
   const x = rows.map(r => r.hour);
   let cum = 0;
-  const cumSeries = rows.map(r => (cum += (r.rentGr || 0) + (r.rentRo || 0)));
+  const cumSeries = rows.map(r => (cum += (r.moneyFlow || 0)));
   Plotly.newPlot('chart-rent', [
-    { x, y: rows.map(r => r.rentGr), name: 'Рента БГ↔ГР', type: 'bar', marker: { color: COL.gr } },
-    { x, y: rows.map(r => r.rentRo), name: 'Рента БГ↔РО', type: 'bar', marker: { color: COL.ro } },
+    { x, y: rows.map(r => +(r.moneyFlow || 0).toFixed(0)), name: 'Пари от обмена', type: 'bar', marker: { color: COL.rent } },
     { x, y: cumSeries, name: 'Натрупано (дясна ос е скрита — виж стойност в подсказка)', type: 'scatter', mode: 'lines',
-      line: { color: COL.rent, width: 2.5 }, yaxis: 'y2', hovertemplate: 'Натрупано: %{y:.0f} €<extra></extra>' },
+      line: { color: COL.bg, width: 2.5 }, yaxis: 'y2', hovertemplate: 'Натрупано: %{y:.0f} €<extra></extra>' },
   ], {
     height: 320,
     margin: { t: 16, r: 52, b: 40, l: 52 },
     barmode: 'relative',
     xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
     yaxis: { title: { text: 'EUR / интервал', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
-    yaxis2: { overlaying: 'y', side: 'right', showgrid: false, tickfont: { size: 10, color: COL.rent }, title: { text: 'Натрупано, EUR', font: { size: 10, color: COL.rent } } },
+    yaxis2: { overlaying: 'y', side: 'right', showgrid: false, tickfont: { size: 10, color: COL.bg }, title: { text: 'Натрупано, EUR', font: { size: 10, color: COL.bg } } },
     legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 11 } },
     plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
   }, { responsive: true, displayModeBar: false });
@@ -428,6 +509,7 @@ async function loadDay(dateStr) {
   contentEl.style.display = '';
 
   setKpis(rows);
+  setBattery4h(rows);
   renderReport(buildReport(rows));
   renderPriceChart(rows);
   renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capGr', 'Гърция', COL.gr);
