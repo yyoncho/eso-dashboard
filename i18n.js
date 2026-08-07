@@ -197,7 +197,7 @@
     // report sentences (fragments split at <b> tag boundaries -- each becomes
     // its own DOM text node, so the dictionary entries must match that, not
     // the pre-HTML template string)
-    ['БГ беше ', 'BG was '],
+    ['БГ е ', 'BG is '],
     ['ценово обвързана с Гърция', 'price-coupled with Greece'],
     ['ценово обвързана с Румъния', 'price-coupled with Romania'],
     ['% от денонощието — предимно самостоятелна ценова зона през останалото време.',
@@ -239,8 +239,8 @@
      ' EUR/MWh — the interconnector is likely a limiting factor during these hours.'],
     [' MW), при ценова разлика от ', ' MW), with a price gap of '],
     [' EUR/MWh.', ' EUR/MWh.'],
-    ['Пиковите часове (18–22 ч) не показват насищане на интерконекторите — капацитетът беше достатъчен спрямо търсения обмен.',
-     'Peak hours (18:00–22:00) show no interconnector saturation — capacity was sufficient for the exchange demanded.'],
+    ['Пиковите часове (18–22 ч) не показват насищане на интерконекторите — капацитетът е достатъчен спрямо търсения обмен.',
+     'Peak hours (18:00–22:00) show no interconnector saturation — capacity is sufficient for the exchange demanded.'],
     ['Няма съществен пиков износ към Гърция (среден нетен поток ', 'No significant peak export to Greece (average net flow '],
     [' MW) — ', ' MW) — '],
     ['Румъния поглъща по-голямата част от батерийния износ', 'Romania is absorbing most of the battery export'],
@@ -255,7 +255,7 @@
     ['% от интервалите (среден износ ', '% of intervals (average export '],
     [' MW през тези интервали) — възможен недостиг на предлагане в Румъния, ограничен от преносната способност.',
      ' MW during those intervals) — a possible supply shortfall in Romania, constrained by transfer capacity.'],
-    ['Гърция беше средно ', 'Greece was on average '],
+    ['Гърция е средно ', 'Greece is on average '],
     [' EUR/MWh ', ' EUR/MWh '],
     [' спрямо БГ за деня.', ' than BG for the day.'],
     ['по-скъпа', 'more expensive'],

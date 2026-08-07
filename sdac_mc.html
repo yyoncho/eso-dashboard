@@ -297,10 +297,10 @@ function buildReport(rows, solarChargeAvg) {
   const coupledRoPct = pct(rows, r => r.coupledRo);
 
   add('🔗', coupledGrPct >= 60 ? 'ok' : '',
-    `БГ беше <b>ценово обвързана с Гърция</b> през ${N(coupledGrPct)}% от денонощието` +
+    `БГ е <b>ценово обвързана с Гърция</b> през ${N(coupledGrPct)}% от денонощието` +
     (coupledGrPct < 40 ? ' — предимно самостоятелна ценова зона през останалото време.' : '.'));
   add('🔗', coupledRoPct >= 60 ? 'ok' : '',
-    `БГ беше <b>ценово обвързана с Румъния</b> през ${N(coupledRoPct)}% от денонощието` +
+    `БГ е <b>ценово обвързана с Румъния</b> през ${N(coupledRoPct)}% от денонощието` +
     (coupledRoPct < 40 ? ' — предимно самостоятелна ценова зона през останалото време.' : '.'));
 
   // Solar / midday window
@@ -363,7 +363,7 @@ function buildReport(rows, solarChargeAvg) {
       add('⚠️', 'warn', `<b>Наситен капацитет с Гърция</b> през пиковите часове (18–22 ч), ${N(peakCongGr)}% от интервалите на границата на пропускателната способност (среден обмен ${N(Math.round(peakCongGrFlow))} MW), при ценова разлика от ${N(Math.abs(peakSpreadGr).toFixed(1))} EUR/MWh.`);
     }
     if (peakCongGr < 20 && peakCongRo < 20) {
-      add('✅', 'ok', `Пиковите часове (18–22 ч) не показват насищане на интерконекторите — капацитетът беше достатъчен спрямо търсения обмен.`);
+      add('✅', 'ok', `Пиковите часове (18–22 ч) не показват насищане на интерконекторите — капацитетът е достатъчен спрямо търсения обмен.`);
     }
 
     // Where does BG's peak battery export actually go -- GR (displacing gas
@@ -389,7 +389,7 @@ function buildReport(rows, solarChargeAvg) {
   const grSpreadAll = avg(rows.map(r => r.gr != null ? r.gr - r.bg : null));
   if (grSpreadAll != null && Math.abs(grSpreadAll) > 5) {
     const dir = grSpreadAll > 0 ? 'по-скъпа' : 'по-евтина';
-    add('🇬🇷', '', `Гърция беше средно ${N(Math.abs(grSpreadAll).toFixed(1))} EUR/MWh ${dir} спрямо БГ за деня.`);
+    add('🇬🇷', '', `Гърция е средно ${N(Math.abs(grSpreadAll).toFixed(1))} EUR/MWh ${dir} спрямо БГ за деня.`);
   }
 
   return items;
