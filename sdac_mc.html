@@ -315,7 +315,7 @@ function buildReport(rows, solarChargeAvg) {
     const allNetGrAvg = avg(rows.map(r => Math.abs(r.netGr))) || 1;
     if (bgSolarAvg != null && bgSolarAvg < 30) {
       if (grSolarAvg != null && grSolarAvg < 30 && solarCoupled >= 50) {
-        add('☀️', '', `<b>Слънчев излишък в региона:</b> и БГ (${N(fmtPrice(bgSolarAvg))}), и Гърция (${N(fmtPrice(grSolarAvg))}) паднаха до ниски цени през 10–16 ч, с обвързан пазар — регионален, не само локален излишък на слънчева енергия.`);
+        add('☀️', '', `<b>Слънчев излишък в региона:</b> и БГ (${N(fmtPrice(bgSolarAvg))}), и Гърция (${N(fmtPrice(grSolarAvg))}) падат до ниски цени през 10–16 ч, с обвързан пазар — регионален, не само локален излишък на слънчева енергия.`);
       } else if (solarNetGrAvg < allNetGrAvg * 0.6) {
         add('🔋', '', `През слънчевите часове (10–16 ч) цената в БГ падна до ${N(fmtPrice(bgSolarAvg))}, но обменът със съседите остана слаб спрямо денонощната средна — вероятно батериите поемат по-голямата част от излишъка, вместо той да се изнася.`);
       } else {
