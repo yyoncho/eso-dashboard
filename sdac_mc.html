@@ -176,15 +176,12 @@ input[type="date"]#date-picker {
       <div class="panel-body">
         <div id="chart-rent"></div>
         <div class="note">
-          <b>Пари от обмена</b> = нетен поток (МВт) × ценова разлика (съсед − БГ) × продължителност на интервала, сумирано за ГР и РО.
-          Положителна стойност = приход от коупъла (износ към по-скъп пазар или внос от по-евтин); не е реален паричен превод към ЕСО,
-          а теоретична стойност на пазарното сближаване.
-          <br><b>Реекспорт (транзит):</b> когато БГ едновременно внася от единия съсед и изнася към другия, припокриващият се обем се третира като
-          преминаващ транзитно през БГ и се изважда — не се брои като печалба от собствена търговия на БГ.
-          <br><b>4-часова батерия:</b> търси се неприпокриващ се 4-часов прозорец с най-ниска средна цена (зареждане) и 4-часов прозорец с
-          най-висока средна цена (разреждане) в рамките на деня по БГ цената; приходът на MW е ориентировъчен, при 90% рундтрип ефективност.
+          <b>Пари от обмена</b> = нетен поток (МВт) × ценова разлика (съсед − БГ) × продължителност на интервала, сумирано за ГР и РО. Положителна стойност = приход от коупъла (износ към по-скъп пазар или внос от по-евтин); не е реален паричен превод към ЕСО, а теоретична стойност на пазарното сближаване.
+          <br><b>Реекспорт (транзит):</b> когато БГ едновременно внася от единия съсед и изнася към другия, припокриващият се обем се третира като преминаващ транзитно през БГ и се изважда — не се брои като печалба от собствена търговия на БГ.
+          <br><b>4-часова батерия:</b> търси се неприпокриващ се 4-часов прозорец с най-ниска средна цена (зареждане) и 4-часов прозорец с най-висока средна цена (разреждане) в рамките на деня по БГ цената; приходът на MW е ориентировъчен, при 90% рундтрип ефективност.
           <br><b>Данни:</b> IBEX SDAC Market Coupling, обновявани дневно около 16:00 ч. българско време.
           <br><b>Обвързана цена</b> = разлика &le; 1 EUR/MWh между пазарите. <b>Наситен капацитет</b> = използван поток &ge; 90% от наличния.
+          <br><b>Капацитет за внос и износ не е еднакъв</b> — пунктираните линии на графиките за обмен показват реалния капацитет във всяка посока поотделно (горна = внос, долна = износ), не огледален еднакъв лимит.
         </div>
       </div>
     </div>
@@ -248,8 +245,12 @@ function analyze(day) {
     const impRo = r.fl_ro_bg || 0, expRo = r.fl_bg_ro || 0;   // BG<->RO, MW
     const netGr = expGr - impGr;   // + = BG exports to GR (raw, physical -- used for flow charts / congestion)
     const netRo = expRo - impRo;   // + = BG exports to RO (raw, physical)
-    const capGr = netGr >= 0 ? r.czc_bg_gr : r.czc_gr_bg;
-    const capRo = netRo >= 0 ? r.czc_bg_ro : r.czc_ro_bg;
+    // Export and import capacity are NOT the same (e.g. czc_bg_gr vs czc_gr_bg
+    // routinely differ by 200-500+ MW) -- keep both directions distinct.
+    const capExportGr = r.czc_bg_gr, capImportGr = r.czc_gr_bg;
+    const capExportRo = r.czc_bg_ro, capImportRo = r.czc_ro_bg;
+    const capGr = netGr >= 0 ? capExportGr : capImportGr;   // capacity in the direction actually flowing
+    const capRo = netRo >= 0 ? capExportRo : capImportRo;
 
     // Re-export / transit netting: when BG imports from one border and
     // exports to the other in the same interval, the overlap is power
@@ -268,6 +269,7 @@ function analyze(day) {
       hour: r.time_bg,
       bg: r.bg_price, gr: r.gr_price, ro: r.ro_price,
       netGr, netRo, capGr, capRo,
+      capExportGr, capImportGr, capExportRo, capImportRo,
       coupledGr: r.gr_price != null && Math.abs(r.gr_price - r.bg_price) <= COUPLE_EUR,
       coupledRo: r.ro_price != null && Math.abs(r.ro_price - r.bg_price) <= COUPLE_EUR,
       congestedGr: capGr > 0 && Math.abs(netGr) >= CONGEST_UTIL * capGr,
@@ -487,18 +489,21 @@ function renderPriceChart(rows) {
   }, { responsive: true, displayModeBar: false });
 }
 
-function renderFlowPanel(elId, rows, netKey, capKey, congKey, label, color) {
+function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, congKey, label, color) {
   // Display convention: + = import into BG. Underlying rows[].netKey stays
   // export-positive internally (used by the report/money-flow logic
   // elsewhere) -- only the plotted values are negated here.
+  // Export and import capacity are genuinely different (e.g. czc_bg_gr vs
+  // czc_gr_bg), so the envelope is NOT a mirrored/symmetric line -- the
+  // upper (import) and lower (export) bounds are each their own real value.
   const x = rows.map(r => r.hour);
   const congX = rows.filter(r => r[congKey]).map(r => r.hour);
   const congY = rows.filter(r => r[congKey]).map(r => -r[netKey]);
   Plotly.newPlot(elId, [
-    { x, y: rows.map(r => r[capKey]), name: `Наличен капацитет`, type: 'scatter', mode: 'lines',
+    { x, y: rows.map(r => r[capImportKey]), name: `Капацитет за внос`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dot' }, hoverinfo: 'skip' },
-    { x, y: rows.map(r => -r[capKey]), name: `Наличен капацитет`, type: 'scatter', mode: 'lines',
-      line: { color: '#c9c9c9', width: 1, dash: 'dot' }, showlegend: false, hoverinfo: 'skip' },
+    { x, y: rows.map(r => -r[capExportKey]), name: `Капацитет за износ`, type: 'scatter', mode: 'lines',
+      line: { color: '#c9c9c9', width: 1, dash: 'dash' }, showlegend: false, hoverinfo: 'skip' },
     { x, y: rows.map(r => -r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
       fill: 'tozeroy', fillcolor: color + '33', line: { color, width: 1.8 },
       hovertemplate: `%{x}<br>%{y:.0f} MW<extra></extra>` },
@@ -598,8 +603,8 @@ async function loadDay(dateStr) {
   setBattery4h(rows);
   renderReport(buildReport(rows, solarChargeAvg));
   renderPriceChart(rows);
-  renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capGr', 'congestedGr', 'Гърция', COL.gr);
-  renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capRo', 'congestedRo', 'Румъния', COL.ro);
+  renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capImportGr', 'capExportGr', 'congestedGr', 'Гърция', COL.gr);
+  renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capImportRo', 'capExportRo', 'congestedRo', 'Румъния', COL.ro);
   renderRentChart(rows);
 
   updateNav(dateStr);
