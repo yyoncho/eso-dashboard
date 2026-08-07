@@ -335,6 +335,16 @@ function buildReport(rows) {
     if (peakCongGr < 20 && peakCongRo < 20) {
       add('✅', 'ok', `Пиковите часове (18–22 ч) не показват насищане на интерконекторите — капацитетът беше достатъчен спрямо търсения обмен.`);
     }
+
+    // Where does BG's peak battery export actually go -- GR (displacing gas
+    // peakers there) or is RO absorbing all of it, leaving none for GR?
+    const peakExportGrAvg = avg(peak.map(r => r.netGr));
+    const peakExportRoAvg = avg(peak.map(r => r.netRo));
+    if (peakExportGrAvg != null && peakExportGrAvg < 100 && peakExportRoAvg != null && peakExportRoAvg > 300) {
+      add('🔋', 'warn', `Няма съществен пиков износ към Гърция (среден нетен поток ${N(Math.round(peakExportGrAvg))} MW) — <b>Румъния поглъща по-голямата част от батерийния износ</b> през пика (среден нетен поток ${N(Math.round(peakExportRoAvg))} MW към РО), не оставяйки свободен капацитет за ГР.`);
+    } else if (peakExportGrAvg != null && peakExportGrAvg > 200) {
+      add('🔋', '', `Пиковият износ към Гърция (среден нетен поток ${N(Math.round(peakExportGrAvg))} MW) вероятно измества природен газ пикови централи там през тези часове.`);
+    }
   }
 
   // Overall RO shortage signal (BG exporting near capacity to a persistently pricier RO)
