@@ -136,17 +136,6 @@ input[type="date"]#date-picker {
   <div id="content" style="display:none">
 
     <div class="panel">
-      <div class="panel-header">🔋 Оптимален 4-часов интервал за батерия</div>
-      <div class="panel-body">
-        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
-          <div class="kpi"><div class="kpi-label">Зареждане (най-евтин 4ч)</div><div class="kpi-val" id="kv-batt-chg">—</div><div class="kpi-sub" id="ks-batt-chg"></div></div>
-          <div class="kpi"><div class="kpi-label">Разреждане (най-скъп 4ч)</div><div class="kpi-val" id="kv-batt-dis">—</div><div class="kpi-sub" id="ks-batt-dis"></div></div>
-          <div class="kpi money"><div class="kpi-label">Спред / приход на MW</div><div class="kpi-val" id="kv-batt-spread">—</div><div class="kpi-sub" id="ks-batt-spread"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
       <div class="panel-header">Ключови показатели за деня</div>
       <div class="panel-body">
         <div class="kpi-row">
@@ -194,6 +183,17 @@ input[type="date"]#date-picker {
           най-висока средна цена (разреждане) в рамките на деня по БГ цената; приходът на MW е ориентировъчен, при 90% рундтрип ефективност.
           <br><b>Данни:</b> IBEX SDAC Market Coupling, обновявани дневно около 16:00 ч. българско време.
           <br><b>Обвързана цена</b> = разлика &le; 1 EUR/MWh между пазарите. <b>Наситен капацитет</b> = използван поток &ge; 90% от наличния.
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">🔋 Оптимален 4-часов интервал за батерия</div>
+      <div class="panel-body">
+        <div class="kpi-row" style="grid-template-columns:repeat(3,1fr)">
+          <div class="kpi"><div class="kpi-label">Зареждане (най-евтин 4ч)</div><div class="kpi-val" id="kv-batt-chg">—</div><div class="kpi-sub" id="ks-batt-chg"></div></div>
+          <div class="kpi"><div class="kpi-label">Разреждане (най-скъп 4ч)</div><div class="kpi-val" id="kv-batt-dis">—</div><div class="kpi-sub" id="ks-batt-dis"></div></div>
+          <div class="kpi money"><div class="kpi-label">Спред / приход на MW</div><div class="kpi-val" id="kv-batt-spread">—</div><div class="kpi-sub" id="ks-batt-spread"></div></div>
         </div>
       </div>
     </div>
@@ -324,11 +324,13 @@ function buildReport(rows) {
     const peakCongRo = pct(peak, r => r.congestedRo);
     const peakSpreadRo = avg(peak.map(r => r.ro != null ? r.ro - r.bg : null));
     const peakSpreadGr = avg(peak.map(r => r.gr != null ? r.gr - r.bg : null));
+    const peakCongRoFlow = avg(peak.filter(r => r.congestedRo).map(r => Math.abs(r.netRo)));
+    const peakCongGrFlow = avg(peak.filter(r => r.congestedGr).map(r => Math.abs(r.netGr)));
     if (peakCongRo >= 40 && peakSpreadRo != null && Math.abs(peakSpreadRo) > 3) {
-      add('⚠️', 'warn', `<b>Наситен капацитет с Румъния</b> през пиковите часове (18–22 ч), ${N(peakCongRo)}% от интервалите на границата на пропускателната способност, при устойчива ценова разлика от ${N(Math.abs(peakSpreadRo).toFixed(1))} EUR/MWh — интерконекторът вероятно е ограничаващ фактор в тези часове.`);
+      add('⚠️', 'warn', `<b>Наситен капацитет с Румъния</b> през пиковите часове (18–22 ч), ${N(peakCongRo)}% от интервалите на границата на пропускателната способност (среден обмен ${N(Math.round(peakCongRoFlow))} MW), при устойчива ценова разлика от ${N(Math.abs(peakSpreadRo).toFixed(1))} EUR/MWh — интерконекторът вероятно е ограничаващ фактор в тези часове.`);
     }
     if (peakCongGr >= 40 && peakSpreadGr != null && Math.abs(peakSpreadGr) > 3) {
-      add('⚠️', 'warn', `<b>Наситен капацитет с Гърция</b> през пиковите часове (18–22 ч), ${N(peakCongGr)}% от интервалите на границата на пропускателната способност, при ценова разлика от ${N(Math.abs(peakSpreadGr).toFixed(1))} EUR/MWh.`);
+      add('⚠️', 'warn', `<b>Наситен капацитет с Гърция</b> през пиковите часове (18–22 ч), ${N(peakCongGr)}% от интервалите на границата на пропускателната способност (среден обмен ${N(Math.round(peakCongGrFlow))} MW), при ценова разлика от ${N(Math.abs(peakSpreadGr).toFixed(1))} EUR/MWh.`);
     }
     if (peakCongGr < 20 && peakCongRo < 20) {
       add('✅', 'ok', `Пиковите часове (18–22 ч) не показват насищане на интерконекторите — капацитетът беше достатъчен спрямо търсения обмен.`);
@@ -338,8 +340,9 @@ function buildReport(rows) {
   // Overall RO shortage signal (BG exporting near capacity to a persistently pricier RO)
   const roSpreadAll = avg(rows.map(r => r.ro != null ? r.ro - r.bg : null));
   const roCongPct = pct(rows, r => r.congestedRo && r.netRo > 0);
+  const roCongExportAvg = avg(rows.filter(r => r.congestedRo && r.netRo > 0).map(r => r.netRo));
   if (roSpreadAll != null && roSpreadAll > 5 && roCongPct >= 25) {
-    add('🇷🇴', 'warn', `Румъния плати средно ${N(roSpreadAll.toFixed(1))} EUR/MWh повече от БГ за деня, а износът БГ→РО достигна пределния капацитет в ${N(roCongPct)}% от интервалите — възможен недостиг на предлагане в Румъния, ограничен от преносната способност.`);
+    add('🇷🇴', 'warn', `Румъния плати средно ${N(roSpreadAll.toFixed(1))} EUR/MWh повече от БГ за деня, а износът БГ→РО достигна пределния капацитет в ${N(roCongPct)}% от интервалите (среден износ ${N(Math.round(roCongExportAvg))} MW през тези интервали) — възможен недостиг на предлагане в Румъния, ограничен от преносната способност.`);
   }
 
   // Overall GR direction
