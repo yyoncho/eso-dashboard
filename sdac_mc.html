@@ -214,13 +214,18 @@ const CONGEST_UTIL = 0.9;   // flow >= this fraction of available capacity => "s
 let allDates = [];
 let currentDate = null;
 
-async function getJSON(url) {
+async function getText(url) {
   let r = await fetch(url).catch(() => null);
   if ((!r || !r.ok) && BASE !== REMOTE_BASE && url.startsWith(BASE)) {
     r = await fetch(REMOTE_BASE + url.slice(BASE.length)).catch(() => null);
   }
   if (!r || !r.ok) return null;
-  return r.json();
+  return r.text();
+}
+
+async function getJSON(url) {
+  const txt = await getText(url);
+  return txt == null ? null : JSON.parse(txt);
 }
 
 function fmtEUR(v) { return v == null ? '—' : v.toLocaleString('bg-BG', { maximumFractionDigits: 0 }) + ' €'; }
@@ -284,7 +289,7 @@ function bucket(rows, lo, hi) { return rows.filter(r => r.localHour >= lo && r.l
 // i18n translator (see i18n.js), instead of numbers embedded mid-sentence.
 function N(v) { return `<span>${v}</span>`; }
 
-function buildReport(rows) {
+function buildReport(rows, solarChargeAvg) {
   const items = [];
   const add = (icon, cls, html) => items.push({ icon, cls, html });
 
@@ -318,14 +323,24 @@ function buildReport(rows) {
 
     // BG<->GR import saturation during solar hours: GR floods with cheap
     // solar, BG maxes out the interconnector importing it, yet BG's own
-    // price doesn't converge -- check if RO export is a plausible reason
-    // BG isn't under pressure to let its price fall further.
+    // price doesn't converge -- check if battery charging and/or RO export
+    // are plausible reasons BG isn't under pressure to let its price fall
+    // further (batteries can profitably charge well above zero as long as
+    // there's a spread to a later discharge price; RO offers an
+    // alternative, higher-priced outlet on a separate interconnector).
     const solarCongGrPct = pct(solar, r => r.congestedGr);
     const solarGapAvg = avg(solar.map(r => (r.bg != null && r.gr != null) ? r.bg - r.gr : null));
     const solarNetRoAvg = avg(solar.map(r => r.netRo));
     if (solarCongGrPct >= 40 && solarGapAvg != null && solarGapAvg > 5) {
       let sentence = `<b>Интерконекторът с Гърция е наситен през слънчевите часове</b> (10–16 ч) в ${N(solarCongGrPct)}% от интервалите — БГ внася на пределния капацитет евтина слънчева енергия от ГР, но цената в БГ остава средно ${N(solarGapAvg.toFixed(1))} EUR/MWh по-висока и не се изравнява.`;
-      if (solarNetRoAvg != null && solarNetRoAvg > 300) {
+
+      const battOk = solarChargeAvg != null && solarChargeAvg > 300;
+      const roOk = solarNetRoAvg != null && solarNetRoAvg > 300;
+      if (battOk && roOk) {
+        sentence += ` Възможна причина: БГ едновременно зарежда батерии (средно ${N(Math.round(solarChargeAvg))} MW) и изнася средно ${N(Math.round(solarNetRoAvg))} MW към Румъния през същите часове — и двете отвеждат стойността другаде, намалявайки натиска цената в БГ да се сближи с почти нулевата в ГР.`;
+      } else if (battOk) {
+        sentence += ` Възможна причина: БГ едновременно зарежда батерии средно ${N(Math.round(solarChargeAvg))} MW през същите часове — излишъкът се съхранява за по-късна употреба, вместо цената да пада допълнително.`;
+      } else if (roOk) {
         sentence += ` Възможна причина: БГ едновременно изнася средно ${N(Math.round(solarNetRoAvg))} MW към Румъния през същите часове — алтернативен пазар с по-висока цена намалява натиска цената в БГ да се сближи с почти нулевата в ГР.`;
       }
       add('☀️', 'warn', sentence);
@@ -525,6 +540,28 @@ function renderReport(items) {
 }
 
 // ── load & orchestrate ──────────────────────────────────────────────────────
+async function fetchSolarChargeAvg(dateStr) {
+  // Best-effort: average batt_charge_mw during 10:00-16:00 BG local time,
+  // from the ESO SCADA snapshot log (may be missing for older dates).
+  const txt = await getText(`${BASE}/${dateStr}.jsonl`);
+  if (txt == null) return null;
+  let sum = 0, n = 0;
+  for (const line of txt.trim().split('\n')) {
+    let r;
+    try { r = JSON.parse(line); } catch (_) { continue; }
+    const ts = r.timestamp_utc || r.timestamp;
+    if (!ts) continue;
+    const d = new Date(ts);
+    if (isNaN(d)) continue;
+    const bgHour = parseInt(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Sofia', hour: '2-digit', hour12: false }).format(d), 10);
+    if (bgHour >= 10 && bgHour < 16) {
+      sum += r.batt_charge_mw || 0;
+      n++;
+    }
+  }
+  return n > 0 ? sum / n : null;
+}
+
 async function loadDay(dateStr) {
   const statusEl = document.getElementById('status');
   const contentEl = document.getElementById('content');
@@ -532,7 +569,10 @@ async function loadDay(dateStr) {
   statusEl.style.display = '';
   statusEl.textContent = 'Зареждане…';
 
-  const day = await getJSON(`${BASE}/ibex_sdac/${dateStr}.json`);
+  const [day, solarChargeAvg] = await Promise.all([
+    getJSON(`${BASE}/ibex_sdac/${dateStr}.json`),
+    fetchSolarChargeAvg(dateStr),
+  ]);
   if (!day || !day.periods || !day.periods.length) {
     statusEl.textContent = `Няма данни за ${dateStr}.`;
     return;
@@ -546,7 +586,7 @@ async function loadDay(dateStr) {
 
   setKpis(rows);
   setBattery4h(rows);
-  renderReport(buildReport(rows));
+  renderReport(buildReport(rows, solarChargeAvg));
   renderPriceChart(rows);
   renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capGr', 'congestedGr', 'Гърция', COL.gr);
   renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capRo', 'congestedRo', 'Румъния', COL.ro);
