@@ -126,6 +126,8 @@ input[type="date"]#date-picker {
     <button class="nav-btn" id="prev-btn" onclick="shiftDay(-1)">&#8592;</button>
     <input type="date" id="date-picker" onchange="pickDate(this.value)">
     <button class="nav-btn" id="next-btn" onclick="shiftDay(1)">&#8594;</button>
+    <button class="nav-btn" id="today-btn" onclick="goToday()">Днес</button>
+    <button class="nav-btn" id="tomorrow-btn" onclick="goTomorrow()">Утре</button>
   </div>
 </header>
 
@@ -575,7 +577,15 @@ async function loadDay(dateStr) {
   ]);
   if (!day || !day.periods || !day.periods.length) {
     statusEl.textContent = `Няма данни за ${dateStr}.`;
+    document.getElementById('date-picker').value = dateStr;
     return;
+  }
+
+  if (!allDates.includes(dateStr)) {
+    allDates = [...allDates, dateStr].sort();
+    const picker = document.getElementById('date-picker');
+    if (dateStr > picker.max) picker.max = dateStr;
+    if (dateStr < picker.min) picker.min = dateStr;
   }
 
   const { rows, stepH } = analyze(day);
@@ -613,6 +623,23 @@ function shiftDay(delta) {
   const idx = allDates.indexOf(currentDate);
   const next = allDates[idx + delta];
   if (next) { currentDate = next; loadDay(next); }
+}
+
+function addDaysBG(dateStr, delta) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  return dt.toISOString().slice(0, 10);
+}
+
+function goToday() {
+  currentDate = todayBG();
+  loadDay(currentDate);
+}
+
+function goTomorrow() {
+  currentDate = addDaysBG(todayBG(), 1);
+  loadDay(currentDate);
 }
 
 async function main() {

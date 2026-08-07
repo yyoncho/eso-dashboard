@@ -374,6 +374,7 @@
     ['5-мин записи', '5-min records'],
     ['Снимка:', 'Snapshot:'],
     ['Днес', 'Today'],
+    ['Утре', 'Tomorrow'],
 
     // ═══ index.html panels / stats ═══
     ['Производство по източници — живо', 'Generation by source — live'],
