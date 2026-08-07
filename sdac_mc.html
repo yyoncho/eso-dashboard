@@ -443,15 +443,18 @@ function renderPriceChart(rows) {
 }
 
 function renderFlowPanel(elId, rows, netKey, capKey, congKey, label, color) {
+  // Display convention: + = import into BG. Underlying rows[].netKey stays
+  // export-positive internally (used by the report/money-flow logic
+  // elsewhere) -- only the plotted values are negated here.
   const x = rows.map(r => r.hour);
   const congX = rows.filter(r => r[congKey]).map(r => r.hour);
-  const congY = rows.filter(r => r[congKey]).map(r => r[netKey]);
+  const congY = rows.filter(r => r[congKey]).map(r => -r[netKey]);
   Plotly.newPlot(elId, [
     { x, y: rows.map(r => r[capKey]), name: `Наличен капацитет`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dot' }, hoverinfo: 'skip' },
     { x, y: rows.map(r => -r[capKey]), name: `Наличен капацитет`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dot' }, showlegend: false, hoverinfo: 'skip' },
-    { x, y: rows.map(r => r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
+    { x, y: rows.map(r => -r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
       fill: 'tozeroy', fillcolor: color + '33', line: { color, width: 1.8 },
       hovertemplate: `%{x}<br>%{y:.0f} MW<extra></extra>` },
     { x: congX, y: congY, name: 'Наситен капацитет', type: 'scatter', mode: 'markers',
@@ -460,7 +463,7 @@ function renderFlowPanel(elId, rows, netKey, capKey, congKey, label, color) {
   ], {
     height: 220,
     margin: { t: 22, r: 16, b: 34, l: 52 },
-    title: { text: `БГ ↔ ${label}  (+ = износ от БГ; ● = наситен капацитет)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
+    title: { text: `БГ ↔ ${label}  (+ = внос в БГ; ● = наситен капацитет)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
     xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
     yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
     showlegend: false,

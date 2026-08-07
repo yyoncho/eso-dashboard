@@ -178,6 +178,7 @@
     ['Натрупано: ', 'Cumulative: '],
     ['Натрупано, EUR', 'Cumulative, EUR'],
     ['EUR / интервал', 'EUR / interval'],
+    ['(+ = внос в БГ; ● = наситен капацитет)', '(+ = import into BG; ● = saturated capacity)'],
     ['(+ = износ от БГ; ● = наситен капацитет)', '(+ = export from BG; ● = saturated capacity)'],
     ['(+ = износ от БГ)', '(+ = export from BG)'],
     ['наситен капацитет: ', 'saturated capacity: '],
