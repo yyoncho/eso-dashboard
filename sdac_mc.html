@@ -315,6 +315,21 @@ function buildReport(rows) {
         add('☀️', '', `През слънчевите часове (10–16 ч) БГ цената падна до ${N(fmtPrice(bgSolarAvg))}, придружено от засилен износ към Гърция — излишъкът основно се изнася, не се съхранява.`);
       }
     }
+
+    // BG<->GR import saturation during solar hours: GR floods with cheap
+    // solar, BG maxes out the interconnector importing it, yet BG's own
+    // price doesn't converge -- check if RO export is a plausible reason
+    // BG isn't under pressure to let its price fall further.
+    const solarCongGrPct = pct(solar, r => r.congestedGr);
+    const solarGapAvg = avg(solar.map(r => (r.bg != null && r.gr != null) ? r.bg - r.gr : null));
+    const solarNetRoAvg = avg(solar.map(r => r.netRo));
+    if (solarCongGrPct >= 40 && solarGapAvg != null && solarGapAvg > 5) {
+      let sentence = `<b>Интерконекторът с Гърция е наситен през слънчевите часове</b> (10–16 ч) в ${N(solarCongGrPct)}% от интервалите — БГ внася на пределния капацитет евтина слънчева енергия от ГР, но цената в БГ остава средно ${N(solarGapAvg.toFixed(1))} EUR/MWh по-висока и не се изравнява.`;
+      if (solarNetRoAvg != null && solarNetRoAvg > 300) {
+        sentence += ` Възможна причина: БГ едновременно изнася средно ${N(Math.round(solarNetRoAvg))} MW към Румъния през същите часове — алтернативен пазар с по-висока цена намалява натиска цената в БГ да се сближи с почти нулевата в ГР.`;
+      }
+      add('☀️', 'warn', sentence);
+    }
   }
 
   // Evening peak
