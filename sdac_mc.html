@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDAC — Пазарно обвързване БГ/ГР/РО</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="i18n.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: #eef3f8; color: #1a2233; font-size: 14px; }
+
+header {
+  background: linear-gradient(180deg, #004494 0%, #003070 100%);
+  color: #fff;
+  border-bottom: 3px solid #ffd700;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1rem; font-weight: 700; }
+header a  { color: rgba(255,255,255,0.72); font-size: 0.78rem; text-decoration: none; }
+header a:hover { color: #fff; }
+
+.day-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.nav-btn {
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.3); }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+input[type="date"]#date-picker {
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 0.82rem;
+  color-scheme: dark;
+}
+
+.page { max-width: 1180px; margin: 0 auto; padding: 16px; }
+
+.panel {
+  background: #fff;
+  border: 1px solid #c5d8ee;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.panel-header {
+  background: #e8f0fa;
+  border-bottom: 1px solid #c5d8ee;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #003070;
+}
+.panel-body { padding: 14px 16px; }
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 760px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+.kpi {
+  border-radius: 5px;
+  padding: 11px 14px;
+  border: 1px solid;
+  background: #f0f6ff;
+  border-color: #b8d4f5;
+}
+.kpi-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6a7a90; margin-bottom: 4px; }
+.kpi-val   { font-size: 1.22rem; font-weight: 700; line-height: 1.1; color: #003070; }
+.kpi-sub   { font-size: 0.7rem; color: #5a6a80; margin-top: 4px; }
+
+.report-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.report-list li {
+  padding: 9px 12px 9px 34px;
+  border-radius: 5px;
+  background: #f7f9fc;
+  border: 1px solid #e4eaf3;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  position: relative;
+}
+.report-list li::before {
+  content: attr(data-icon);
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  font-size: 0.9rem;
+}
+.report-list li.warn { background: #fff8ee; border-color: #f5d98a; }
+.report-list li.ok   { background: #f0faf3; border-color: #b8e6c4; }
+
+.note {
+  font-size: 0.7rem;
+  color: #6a7a90;
+  line-height: 1.65;
+  border-top: 1px solid #e8f0fa;
+  padding-top: 8px;
+  margin-top: 10px;
+}
+#status { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔀 SDAC — Пазарно обвързване БГ / Гърция / Румъния</h1>
+  <a href="index.html">← Табло</a>
+  <span id="lang-flags"></span>
+  <div class="day-nav">
+    <button class="nav-btn" id="prev-btn" onclick="shiftDay(-1)">&#8592;</button>
+    <input type="date" id="date-picker" onchange="pickDate(this.value)">
+    <button class="nav-btn" id="next-btn" onclick="shiftDay(1)">&#8594;</button>
+  </div>
+</header>
+
+<div class="page">
+
+  <div id="status">Зареждане…</div>
+
+  <div id="content" style="display:none">
+
+    <div class="panel">
+      <div class="panel-header">Ключови показатели за деня</div>
+      <div class="panel-body">
+        <div class="kpi-row">
+          <div class="kpi"><div class="kpi-label">Средна цена БГ</div><div class="kpi-val" id="kv-bg">—</div></div>
+          <div class="kpi"><div class="kpi-label">Средна цена Гърция</div><div class="kpi-val" id="kv-gr">—</div></div>
+          <div class="kpi"><div class="kpi-label">Средна цена Румъния</div><div class="kpi-val" id="kv-ro">—</div></div>
+          <div class="kpi"><div class="kpi-label">Рента БГ↔ГР</div><div class="kpi-val" id="kv-rent-gr">—</div><div class="kpi-sub" id="ks-rent-gr"></div></div>
+          <div class="kpi"><div class="kpi-label">Рента БГ↔РО</div><div class="kpi-val" id="kv-rent-ro">—</div><div class="kpi-sub" id="ks-rent-ro"></div></div>
+          <div class="kpi"><div class="kpi-label">Обща рента за деня</div><div class="kpi-val" id="kv-rent-total">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">📋 Анализ на деня</div>
+      <div class="panel-body">
+        <ul class="report-list" id="report-list"></ul>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Часови цени — БГ / Гърция / Румъния</div>
+      <div class="panel-body">
+        <div id="chart-price"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Планиран обмен спрямо наличен капацитет</div>
+      <div class="panel-body">
+        <div id="chart-flow-gr"></div>
+        <div id="chart-flow-ro" style="margin-top:6px"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">Паричен поток от рентата (по интервали и натрупано)</div>
+      <div class="panel-body">
+        <div id="chart-rent"></div>
+        <div class="note">
+          <b>Рента</b> (congestion rent) = нетен поток (МВт) × ценова разлика (съсед − БГ) × продължителност на интервала.
+          Положителна стойност = приход от коупъла (износ към по-скъп пазар или внос от по-евтин); не е реален паричен превод към ЕСО,
+          а теоретична стойност на пазарното сближаване.
+          <br><b>Данни:</b> IBEX SDAC Market Coupling, обновявани дневно около 16:00 ч. българско време.
+          <br><b>Обвързана цена</b> = разлика &le; 1 EUR/MWh между пазарите. <b>Наситен капацитет</b> = използван поток &ge; 90% от наличния.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const REMOTE_BASE = 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data';
+const BASE = location.hostname === 'localhost' ? '/eso-data/data' : REMOTE_BASE;
+
+const COL = { bg: '#004494', gr: '#544fc5', ro: '#2caffe', rent: '#eda100', warn: '#c0392b', ok: '#2a8a2a' };
+const COUPLE_EUR = 1.0;     // price diff <= this => "coupled"
+const CONGEST_UTIL = 0.9;   // flow >= this fraction of available capacity => "saturated"
+
+let allDates = [];
+let currentDate = null;
+
+async function getJSON(url) {
+  let r = await fetch(url).catch(() => null);
+  if ((!r || !r.ok) && BASE !== REMOTE_BASE && url.startsWith(BASE)) {
+    r = await fetch(REMOTE_BASE + url.slice(BASE.length)).catch(() => null);
+  }
+  if (!r || !r.ok) return null;
+  return r.json();
+}
+
+function fmtEUR(v) { return v == null ? '—' : v.toLocaleString('bg-BG', { maximumFractionDigits: 0 }) + ' €'; }
+function fmtPrice(v) { return v == null ? '—' : v.toFixed(1) + ' €/MWh'; }
+
+function todayBG() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Sofia' }).format(new Date());
+}
+
+// ── derive per-interval analytics ──────────────────────────────────────────
+function analyze(day) {
+  const isHourly = day.isHourlyData;
+  const stepH = isHourly ? 1 : 0.25;
+  const p = day.periods;
+
+  const rows = p.map(r => {
+    const netGr = (r.fl_bg_gr || 0) - (r.fl_gr_bg || 0);   // + = BG exports to GR
+    const netRo = (r.fl_bg_ro || 0) - (r.fl_ro_bg || 0);   // + = BG exports to RO
+    const capGr = netGr >= 0 ? r.czc_bg_gr : r.czc_gr_bg;
+    const capRo = netRo >= 0 ? r.czc_bg_ro : r.czc_ro_bg;
+    const rentGr = netGr * ((r.gr_price ?? r.bg_price) - r.bg_price) * stepH;
+    const rentRo = netRo * ((r.ro_price ?? r.bg_price) - r.bg_price) * stepH;
+    return {
+      hour: r.time_bg,
+      bg: r.bg_price, gr: r.gr_price, ro: r.ro_price,
+      netGr, netRo, capGr, capRo,
+      coupledGr: r.gr_price != null && Math.abs(r.gr_price - r.bg_price) <= COUPLE_EUR,
+      coupledRo: r.ro_price != null && Math.abs(r.ro_price - r.bg_price) <= COUPLE_EUR,
+      congestedGr: capGr > 0 && Math.abs(netGr) >= CONGEST_UTIL * capGr,
+      congestedRo: capRo > 0 && Math.abs(netRo) >= CONGEST_UTIL * capRo,
+      rentGr, rentRo,
+      localHour: parseInt(r.time_bg.split(':')[0], 10),
+    };
+  });
+
+  return { rows, stepH };
+}
+
+function avg(arr) { const v = arr.filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; }
+function pct(arr, pred) { return arr.length ? Math.round(100 * arr.filter(pred).length / arr.length) : 0; }
+function bucket(rows, lo, hi) { return rows.filter(r => r.localHour >= lo && r.localHour < hi); }
+
+// ── report generation (rule-based, data-driven) ─────────────────────────────
+// All interpolated numbers are wrapped in <span> so they sit in their own DOM
+// text node, isolated from the surrounding Bulgarian sentence fragments --
+// keeps each fragment a clean, unambiguous unit for the substring-based
+// i18n translator (see i18n.js), instead of numbers embedded mid-sentence.
+function N(v) { return `<span>${v}</span>`; }
+
+function buildReport(rows) {
+  const items = [];
+  const add = (icon, cls, html) => items.push({ icon, cls, html });
+
+  const coupledGrPct = pct(rows, r => r.coupledGr);
+  const coupledRoPct = pct(rows, r => r.coupledRo);
+
+  add('🔗', coupledGrPct >= 60 ? 'ok' : '',
+    `БГ беше <b>ценово обвързана с Гърция</b> през ${N(coupledGrPct)}% от денонощието` +
+    (coupledGrPct < 40 ? ' — предимно самостоятелна ценова зона през останалото време.' : '.'));
+  add('🔗', coupledRoPct >= 60 ? 'ok' : '',
+    `БГ беше <b>ценово обвързана с Румъния</b> през ${N(coupledRoPct)}% от денонощието` +
+    (coupledRoPct < 40 ? ' — предимно самостоятелна ценова зона през останалото време.' : '.'));
+
+  // Solar / midday window
+  const solar = bucket(rows, 10, 16);
+  if (solar.length) {
+    const bgSolarAvg = avg(solar.map(r => r.bg));
+    const grSolarAvg = avg(solar.map(r => r.gr));
+    const solarCoupled = pct(solar, r => r.coupledGr);
+    const solarNetGrAvg = avg(solar.map(r => Math.abs(r.netGr)));
+    const allNetGrAvg = avg(rows.map(r => Math.abs(r.netGr))) || 1;
+    if (bgSolarAvg != null && bgSolarAvg < 30) {
+      if (grSolarAvg != null && grSolarAvg < 30 && solarCoupled >= 50) {
+        add('☀️', '', `<b>Слънчев излишък в региона:</b> и БГ (${N(fmtPrice(bgSolarAvg))}), и Гърция (${N(fmtPrice(grSolarAvg))}) паднаха до ниски цени през 10–16 ч, с обвързан пазар — регионален, не само локален излишък на слънчева енергия.`);
+      } else if (solarNetGrAvg < allNetGrAvg * 0.6) {
+        add('🔋', '', `През слънчевите часове (10–16 ч) цената в БГ падна до ${N(fmtPrice(bgSolarAvg))}, но обменът със съседите остана слаб спрямо денонощната средна — вероятно батериите поемат по-голямата част от излишъка, вместо той да се изнася.`);
+      } else {
+        add('☀️', '', `През слънчевите часове (10–16 ч) БГ цената падна до ${N(fmtPrice(bgSolarAvg))}, придружено от засилен износ към Гърция — излишъкът основно се изнася, не се съхранява.`);
+      }
+    }
+  }
+
+  // Evening peak
+  const peak = bucket(rows, 18, 22);
+  if (peak.length) {
+    const peakCongGr = pct(peak, r => r.congestedGr);
+    const peakCongRo = pct(peak, r => r.congestedRo);
+    const peakSpreadRo = avg(peak.map(r => r.ro != null ? r.ro - r.bg : null));
+    const peakSpreadGr = avg(peak.map(r => r.gr != null ? r.gr - r.bg : null));
+    if (peakCongRo >= 40 && peakSpreadRo != null && Math.abs(peakSpreadRo) > 3) {
+      add('⚠️', 'warn', `<b>Наситен капацитет с Румъния</b> през пиковите часове (18–22 ч), ${N(peakCongRo)}% от интервалите на границата на пропускателната способност, при устойчива ценова разлика от ${N(Math.abs(peakSpreadRo).toFixed(1))} EUR/MWh — интерконекторът вероятно е ограничаващ фактор в тези часове.`);
+    }
+    if (peakCongGr >= 40 && peakSpreadGr != null && Math.abs(peakSpreadGr) > 3) {
+      add('⚠️', 'warn', `<b>Наситен капацитет с Гърция</b> през пиковите часове (18–22 ч), ${N(peakCongGr)}% от интервалите на границата на пропускателната способност, при ценова разлика от ${N(Math.abs(peakSpreadGr).toFixed(1))} EUR/MWh.`);
+    }
+    if (peakCongGr < 20 && peakCongRo < 20) {
+      add('✅', 'ok', `Пиковите часове (18–22 ч) не показват насищане на интерконекторите — капацитетът беше достатъчен спрямо търсения обмен.`);
+    }
+  }
+
+  // Overall RO shortage signal (BG exporting near capacity to a persistently pricier RO)
+  const roSpreadAll = avg(rows.map(r => r.ro != null ? r.ro - r.bg : null));
+  const roCongPct = pct(rows, r => r.congestedRo && r.netRo > 0);
+  if (roSpreadAll != null && roSpreadAll > 5 && roCongPct >= 25) {
+    add('🇷🇴', 'warn', `Румъния плати средно ${N(roSpreadAll.toFixed(1))} EUR/MWh повече от БГ за деня, а износът БГ→РО достигна пределния капацитет в ${N(roCongPct)}% от интервалите — възможен недостиг на предлагане в Румъния, ограничен от преносната способност.`);
+  }
+
+  // Overall GR direction
+  const grSpreadAll = avg(rows.map(r => r.gr != null ? r.gr - r.bg : null));
+  if (grSpreadAll != null && Math.abs(grSpreadAll) > 5) {
+    const dir = grSpreadAll > 0 ? 'по-скъпа' : 'по-евтина';
+    add('🇬🇷', '', `Гърция беше средно ${N(Math.abs(grSpreadAll).toFixed(1))} EUR/MWh ${dir} спрямо БГ за деня.`);
+  }
+
+  return items;
+}
+
+// ── KPI + rent totals ───────────────────────────────────────────────────────
+function setKpis(rows) {
+  document.getElementById('kv-bg').textContent = fmtPrice(avg(rows.map(r => r.bg)));
+  document.getElementById('kv-gr').textContent = fmtPrice(avg(rows.map(r => r.gr)));
+  document.getElementById('kv-ro').textContent = fmtPrice(avg(rows.map(r => r.ro)));
+
+  const rentGr = rows.reduce((s, r) => s + (r.rentGr || 0), 0);
+  const rentRo = rows.reduce((s, r) => s + (r.rentRo || 0), 0);
+  const exportGr = rows.reduce((s, r) => s + Math.max(0, r.netGr) * r._stepH, 0);
+  const importGr = rows.reduce((s, r) => s + Math.max(0, -r.netGr) * r._stepH, 0);
+  const exportRo = rows.reduce((s, r) => s + Math.max(0, r.netRo) * r._stepH, 0);
+  const importRo = rows.reduce((s, r) => s + Math.max(0, -r.netRo) * r._stepH, 0);
+
+  document.getElementById('kv-rent-gr').textContent = fmtEUR(rentGr);
+  document.getElementById('ks-rent-gr').textContent = `износ ${exportGr.toFixed(0)} / внос ${importGr.toFixed(0)} МВч`;
+  document.getElementById('kv-rent-ro').textContent = fmtEUR(rentRo);
+  document.getElementById('ks-rent-ro').textContent = `износ ${exportRo.toFixed(0)} / внос ${importRo.toFixed(0)} МВч`;
+  document.getElementById('kv-rent-total').textContent = fmtEUR(rentGr + rentRo);
+}
+
+// ── charts ───────────────────────────────────────────────────────────────
+function renderPriceChart(rows) {
+  const x = rows.map(r => r.hour);
+  Plotly.newPlot('chart-price', [
+    { x, y: rows.map(r => r.bg), name: 'България', type: 'scatter', mode: 'lines', line: { color: COL.bg, width: 2.5 } },
+    { x, y: rows.map(r => r.gr), name: 'Гърция',    type: 'scatter', mode: 'lines', line: { color: COL.gr, width: 2 } },
+    { x, y: rows.map(r => r.ro), name: 'Румъния',   type: 'scatter', mode: 'lines', line: { color: COL.ro, width: 2 } },
+  ], {
+    height: 340,
+    margin: { t: 16, r: 16, b: 40, l: 52 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
+    yaxis: { title: { text: 'EUR/MWh', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#c0392b' },
+    legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 11 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderFlowPanel(elId, rows, netKey, capKey, label, color) {
+  const x = rows.map(r => r.hour);
+  Plotly.newPlot(elId, [
+    { x, y: rows.map(r => r[capKey]), name: `Наличен капацитет`, type: 'scatter', mode: 'lines',
+      line: { color: '#c9c9c9', width: 1, dash: 'dot' }, hoverinfo: 'skip' },
+    { x, y: rows.map(r => -r[capKey]), name: `Наличен капацитет`, type: 'scatter', mode: 'lines',
+      line: { color: '#c9c9c9', width: 1, dash: 'dot' }, showlegend: false, hoverinfo: 'skip' },
+    { x, y: rows.map(r => r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
+      fill: 'tozeroy', fillcolor: color + '33', line: { color, width: 1.8 },
+      hovertemplate: `%{x}<br>%{y:.0f} MW<extra></extra>` },
+  ], {
+    height: 220,
+    margin: { t: 22, r: 16, b: 34, l: 52 },
+    title: { text: `БГ ↔ ${label}  (+ = износ от БГ)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
+    yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
+    showlegend: false,
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderRentChart(rows) {
+  const x = rows.map(r => r.hour);
+  let cum = 0;
+  const cumSeries = rows.map(r => (cum += (r.rentGr || 0) + (r.rentRo || 0)));
+  Plotly.newPlot('chart-rent', [
+    { x, y: rows.map(r => r.rentGr), name: 'Рента БГ↔ГР', type: 'bar', marker: { color: COL.gr } },
+    { x, y: rows.map(r => r.rentRo), name: 'Рента БГ↔РО', type: 'bar', marker: { color: COL.ro } },
+    { x, y: cumSeries, name: 'Натрупано (дясна ос е скрита — виж стойност в подсказка)', type: 'scatter', mode: 'lines',
+      line: { color: COL.rent, width: 2.5 }, yaxis: 'y2', hovertemplate: 'Натрупано: %{y:.0f} €<extra></extra>' },
+  ], {
+    height: 320,
+    margin: { t: 16, r: 52, b: 40, l: 52 },
+    barmode: 'relative',
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
+    yaxis: { title: { text: 'EUR / интервал', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
+    yaxis2: { overlaying: 'y', side: 'right', showgrid: false, tickfont: { size: 10, color: COL.rent }, title: { text: 'Натрупано, EUR', font: { size: 10, color: COL.rent } } },
+    legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 11 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderReport(items) {
+  const el = document.getElementById('report-list');
+  el.innerHTML = items.map(it => `<li class="${it.cls}" data-icon="${it.icon}">${it.html}</li>`).join('');
+}
+
+// ── load & orchestrate ──────────────────────────────────────────────────────
+async function loadDay(dateStr) {
+  const statusEl = document.getElementById('status');
+  const contentEl = document.getElementById('content');
+  contentEl.style.display = 'none';
+  statusEl.style.display = '';
+  statusEl.textContent = 'Зареждане…';
+
+  const day = await getJSON(`${BASE}/ibex_sdac/${dateStr}.json`);
+  if (!day || !day.periods || !day.periods.length) {
+    statusEl.textContent = `Няма данни за ${dateStr}.`;
+    return;
+  }
+
+  const { rows, stepH } = analyze(day);
+  rows.forEach(r => r._stepH = stepH);
+
+  statusEl.style.display = 'none';
+  contentEl.style.display = '';
+
+  setKpis(rows);
+  renderReport(buildReport(rows));
+  renderPriceChart(rows);
+  renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capGr', 'Гърция', COL.gr);
+  renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capRo', 'Румъния', COL.ro);
+  renderRentChart(rows);
+
+  updateNav(dateStr);
+}
+
+function updateNav(dateStr) {
+  document.getElementById('date-picker').value = dateStr;
+  const idx = allDates.indexOf(dateStr);
+  document.getElementById('prev-btn').disabled = idx <= 0;
+  document.getElementById('next-btn').disabled = idx < 0 || idx >= allDates.length - 1;
+}
+
+function pickDate(v) {
+  if (!v || !allDates.includes(v)) return;
+  currentDate = v;
+  loadDay(v);
+}
+
+function shiftDay(delta) {
+  const idx = allDates.indexOf(currentDate);
+  const next = allDates[idx + delta];
+  if (next) { currentDate = next; loadDay(next); }
+}
+
+async function main() {
+  const idx = await getJSON(`${BASE}/ibex_sdac/index.json`);
+  const today = todayBG();
+  allDates = (idx && idx.dates ? idx.dates : []).filter(d => d <= today).sort();
+  if (!allDates.length) {
+    document.getElementById('status').textContent = 'Няма налични данни.';
+    return;
+  }
+  const hashDate = location.hash.match(/date=(\d{4}-\d{2}-\d{2})/);
+  currentDate = (hashDate && allDates.includes(hashDate[1])) ? hashDate[1] : allDates[allDates.length - 1];
+  document.getElementById('date-picker').min = allDates[0];
+  document.getElementById('date-picker').max = allDates[allDates.length - 1];
+  loadDay(currentDate);
+}
+
+main();
+</script>
+</body>
+</html>
