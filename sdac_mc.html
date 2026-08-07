@@ -497,10 +497,15 @@ function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, label, 
   // czc_gr_bg), so the envelope is NOT a mirrored/symmetric line -- the
   // upper (import) and lower (export) bounds are each their own real value.
   const x = rows.map(r => r.hour);
+  const importY = rows.map(r => r[capImportKey]);
+  const exportY = rows.map(r => -r[capExportKey]);
+  // Label point: pick an early-ish sample (not the very first, which sits
+  // flush against the y-axis) so the annotation text has room to the left.
+  const li = Math.min(3, x.length - 1);
   Plotly.newPlot(elId, [
-    { x, y: rows.map(r => r[capImportKey]), name: `Капацитет за внос`, type: 'scatter', mode: 'lines',
+    { x, y: importY, name: `Капацитет за внос`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dot' }, hoverinfo: 'skip' },
-    { x, y: rows.map(r => -r[capExportKey]), name: `Капацитет за износ`, type: 'scatter', mode: 'lines',
+    { x, y: exportY, name: `Капацитет за износ`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dash' }, showlegend: false, hoverinfo: 'skip' },
     { x, y: rows.map(r => -r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
       fill: 'tozeroy', fillcolor: color + '33', line: { color, width: 1.8 },
@@ -512,6 +517,12 @@ function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, label, 
     xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
     yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
     showlegend: false,
+    annotations: [
+      { x: x[li], y: importY[li], xref: 'x', yref: 'y', xanchor: 'left', yanchor: 'bottom', yshift: 4,
+        text: '⋯⋯ Капацитет за внос', showarrow: false, font: { size: 10, color: '#9aa5b1' } },
+      { x: x[li], y: exportY[li], xref: 'x', yref: 'y', xanchor: 'left', yanchor: 'top', yshift: -4,
+        text: '– – Капацитет за износ', showarrow: false, font: { size: 10, color: '#9aa5b1' } },
+    ],
     plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
   }, { responsive: true, displayModeBar: false });
 }
