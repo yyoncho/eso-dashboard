@@ -532,6 +532,7 @@ function updateNav(dateStr) {
   const idx = allDates.indexOf(dateStr);
   document.getElementById('prev-btn').disabled = idx <= 0;
   document.getElementById('next-btn').disabled = idx < 0 || idx >= allDates.length - 1;
+  try { history.replaceState(null, '', `#date=${dateStr}`); } catch (_) {}
 }
 
 function pickDate(v) {
