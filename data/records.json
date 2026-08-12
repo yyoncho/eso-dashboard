@@ -70,7 +70,7 @@
     "snap_ts": null
   },
   "re_gwh_day": {
-    "val": 67.2,
+    "val": 67.3,
     "label": "ВЕИ енергия за ден",
     "unit": "GWh",
     "date": "2026-08-12",
