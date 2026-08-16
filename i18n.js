@@ -203,6 +203,15 @@
     // report sentences (fragments split at <b> tag boundaries -- each becomes
     // its own DOM text node, so the dictionary entries must match that, not
     // the pre-HTML template string)
+    ['Този ден е №', 'This day is #'],
+    [' от последните ', ' out of the last '],
+    [' дни по ', ' days for '],
+    ['пари от обмена', 'money from the exchange'],
+    ['спред за 4-часова батерия', '4-hour battery spread'],
+    ['насищане на интерконектора с Гърция', 'Greece interconnector saturation'],
+    ['насищане на интерконектора с Румъния', 'Romania interconnector saturation'],
+    ['ценова разлика с Гърция', 'price gap with Greece'],
+    ['ценова разлика с Румъния', 'price gap with Romania'],
     ['БГ е ', 'BG is '],
     ['ценово обвързана с Гърция', 'price-coupled with Greece'],
     ['ценово обвързана с Румъния', 'price-coupled with Romania'],
