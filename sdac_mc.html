@@ -285,6 +285,28 @@ function avg(arr) { const v = arr.filter(x => x != null); return v.length ? v.re
 function pct(arr, pred) { return arr.length ? Math.round(100 * arr.filter(pred).length / arr.length) : 0; }
 function bucket(rows, lo, hi) { return rows.filter(r => r.localHour >= lo && r.localHour < hi); }
 
+// Contiguous runs of rows matching `pred` (chronological order), e.g. to
+// pinpoint the actual clock-time span(s) of a congested/mismatched period
+// instead of just reporting a % of the day.
+function contiguousWindows(rows, pred) {
+  const windows = [];
+  let start = -1;
+  for (let i = 0; i < rows.length; i++) {
+    if (pred(rows[i])) {
+      if (start === -1) start = i;
+    } else if (start !== -1) {
+      windows.push({ start, end: i - 1, len: i - start });
+      start = -1;
+    }
+  }
+  if (start !== -1) windows.push({ start, end: rows.length - 1, len: rows.length - start });
+  return windows;
+}
+function fmtWindow(rows, w) {
+  const endIdx = Math.min(w.end + 1, rows.length - 1);
+  return `${rows[w.start].hour}–${rows[endIdx].hour}`;
+}
+
 // ── report generation (rule-based, data-driven) ─────────────────────────────
 // All interpolated numbers are wrapped in <span> so they sit in their own DOM
 // text node, isolated from the surrounding Bulgarian sentence fragments --
@@ -384,11 +406,16 @@ function buildReport(rows, solarChargeAvg) {
 
   // Convergence reason shared by the overall GR/RO direction sentences below:
   // saturated interconnector explains a persistent gap regardless of which
-  // side is cheaper; otherwise fall back to how much of the day the markets
+  // side is cheaper -- pinpoint the actual clock-time window(s), not just a
+  // % of the day; otherwise fall back to how much of the day the markets
   // were actually price-coupled.
-  const convergenceReason = (congPctAll, coupledPct) => {
+  const convergenceReason = (congKey, congPctAll, coupledPct) => {
     if (congPctAll >= 30) {
-      return `вероятно заради наситен интерконектор през ${N(congPctAll)}% от денонощието, ограничаващ обмена между пазарите`;
+      const windows = contiguousWindows(rows, r => r[congKey]);
+      const top = windows.sort((a, b) => b.len - a.len).slice(0, 2)
+        .sort((a, b) => a.start - b.start).map(w => fmtWindow(rows, w));
+      const timeText = top.length > 1 ? `${N(top[0])} и ${N(top[1])}` : N(top[0]);
+      return `вероятно заради наситен интерконектор през ${timeText} (${N(congPctAll)}% от денонощието), ограничаващ обмена между пазарите`;
     }
     if (coupledPct < 40) {
       return `пазарите останаха предимно необвързани (само ${N(coupledPct)}% от денонощието с изравнена цена)`;
@@ -405,7 +432,7 @@ function buildReport(rows, solarChargeAvg) {
     add('🇷🇴', 'warn', `Румъния плати средно ${N(roSpreadAll.toFixed(1))} EUR/MWh повече от БГ за деня, а износът БГ→РО достигна пределния капацитет в ${N(roCongPct)}% от интервалите (среден износ ${N(Math.round(roCongExportAvg))} MW през тези интервали) — възможен недостиг на предлагане в Румъния, ограничен от преносната способност.`);
   } else if (roSpreadAll != null && Math.abs(roSpreadAll) > 5) {
     const dirRo = roSpreadAll > 0 ? 'по-скъпа' : 'по-евтина';
-    add('🇷🇴', '', `Румъния е средно ${N(Math.abs(roSpreadAll).toFixed(1))} EUR/MWh ${dirRo} спрямо БГ за деня — ${convergenceReason(roCongPctAll, coupledRoPct)}.`);
+    add('🇷🇴', '', `Румъния е средно ${N(Math.abs(roSpreadAll).toFixed(1))} EUR/MWh ${dirRo} спрямо БГ за деня — ${convergenceReason('congestedRo', roCongPctAll, coupledRoPct)}.`);
   }
 
   // Overall GR direction
@@ -413,7 +440,7 @@ function buildReport(rows, solarChargeAvg) {
   const grCongPctAll = pct(rows, r => r.congestedGr);
   if (grSpreadAll != null && Math.abs(grSpreadAll) > 5) {
     const dir = grSpreadAll > 0 ? 'по-скъпа' : 'по-евтина';
-    add('🇬🇷', '', `Гърция е средно ${N(Math.abs(grSpreadAll).toFixed(1))} EUR/MWh ${dir} спрямо БГ за деня — ${convergenceReason(grCongPctAll, coupledGrPct)}.`);
+    add('🇬🇷', '', `Гърция е средно ${N(Math.abs(grSpreadAll).toFixed(1))} EUR/MWh ${dir} спрямо БГ за деня — ${convergenceReason('congestedGr', grCongPctAll, coupledGrPct)}.`);
   }
 
   return items;
