@@ -228,6 +228,8 @@
      ', but exchange with neighbours stayed weak relative to the daily average — batteries are likely absorbing most of the surplus rather than it being exported.'],
     [', придружено от засилен износ към Гърция — излишъкът основно се изнася, не се съхранява.',
      ', accompanied by increased export to Greece — the surplus is mainly exported, not stored.'],
+    [' Денят е почивен, а потреблението обичайно е по-ниско — това вероятно засилва ефекта, не само слънчевото производство.',
+     ' It is a weekend, and consumption is typically lower — this likely reinforces the effect, not just solar output.'],
     ['Интерконекторът с Гърция е наситен през слънчевите часове', 'The interconnector with Greece is saturated during solar hours'],
     [' (10–16 ч) в ', ' (10:00–16:00) in '],
     ['% от интервалите — БГ внася на пределния капацитет евтина слънчева енергия от ГР, но цената в БГ остава средно ',
