@@ -382,19 +382,38 @@ function buildReport(rows, solarChargeAvg) {
     }
   }
 
+  // Convergence reason shared by the overall GR/RO direction sentences below:
+  // saturated interconnector explains a persistent gap regardless of which
+  // side is cheaper; otherwise fall back to how much of the day the markets
+  // were actually price-coupled.
+  const convergenceReason = (congPctAll, coupledPct) => {
+    if (congPctAll >= 30) {
+      return `вероятно заради наситен интерконектор през ${N(congPctAll)}% от денонощието, ограничаващ обмена между пазарите`;
+    }
+    if (coupledPct < 40) {
+      return `пазарите останаха предимно необвързани (само ${N(coupledPct)}% от денонощието с изравнена цена)`;
+    }
+    return `въпреки сравнително добра ценова обвързаност (${N(coupledPct)}% от денонощието)`;
+  };
+
   // Overall RO shortage signal (BG exporting near capacity to a persistently pricier RO)
   const roSpreadAll = avg(rows.map(r => r.ro != null ? r.ro - r.bg : null));
   const roCongPct = pct(rows, r => r.congestedRo && r.netRo > 0);
   const roCongExportAvg = avg(rows.filter(r => r.congestedRo && r.netRo > 0).map(r => r.netRo));
+  const roCongPctAll = pct(rows, r => r.congestedRo);
   if (roSpreadAll != null && roSpreadAll > 5 && roCongPct >= 25) {
     add('🇷🇴', 'warn', `Румъния плати средно ${N(roSpreadAll.toFixed(1))} EUR/MWh повече от БГ за деня, а износът БГ→РО достигна пределния капацитет в ${N(roCongPct)}% от интервалите (среден износ ${N(Math.round(roCongExportAvg))} MW през тези интервали) — възможен недостиг на предлагане в Румъния, ограничен от преносната способност.`);
+  } else if (roSpreadAll != null && Math.abs(roSpreadAll) > 5) {
+    const dirRo = roSpreadAll > 0 ? 'по-скъпа' : 'по-евтина';
+    add('🇷🇴', '', `Румъния е средно ${N(Math.abs(roSpreadAll).toFixed(1))} EUR/MWh ${dirRo} спрямо БГ за деня — ${convergenceReason(roCongPctAll, coupledRoPct)}.`);
   }
 
   // Overall GR direction
   const grSpreadAll = avg(rows.map(r => r.gr != null ? r.gr - r.bg : null));
+  const grCongPctAll = pct(rows, r => r.congestedGr);
   if (grSpreadAll != null && Math.abs(grSpreadAll) > 5) {
     const dir = grSpreadAll > 0 ? 'по-скъпа' : 'по-евтина';
-    add('🇬🇷', '', `Гърция е средно ${N(Math.abs(grSpreadAll).toFixed(1))} EUR/MWh ${dir} спрямо БГ за деня.`);
+    add('🇬🇷', '', `Гърция е средно ${N(Math.abs(grSpreadAll).toFixed(1))} EUR/MWh ${dir} спрямо БГ за деня — ${convergenceReason(grCongPctAll, coupledGrPct)}.`);
   }
 
   return items;
