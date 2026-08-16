@@ -233,6 +233,11 @@ function todayBG() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Sofia' }).format(new Date());
 }
 
+function isWeekend(dateStr) {
+  const day = new Date(dateStr + 'T00:00:00Z').getUTCDay();
+  return day === 0 || day === 6;
+}
+
 // ── derive per-interval analytics ──────────────────────────────────────────
 function analyze(day) {
   const isHourly = day.isHourlyData;
@@ -373,13 +378,19 @@ function buildReport(rows, solarChargeAvg, summary, dateStr) {
     const solarCoupled = pct(solar, r => r.coupledGr);
     const solarNetGrAvg = avg(solar.map(r => Math.abs(r.netGr)));
     const allNetGrAvg = avg(rows.map(r => Math.abs(r.netGr))) || 1;
+    // A near-zero midday price is not purely a solar-supply story -- on a
+    // weekend, structurally lower demand means the same solar output pushes
+    // the price down further/faster than it would on a working day.
+    const weekendNote = isWeekend(dateStr)
+      ? ' Денят е почивен, а потреблението обичайно е по-ниско — това вероятно засилва ефекта, не само слънчевото производство.'
+      : '';
     if (bgSolarAvg != null && bgSolarAvg < 30) {
       if (grSolarAvg != null && grSolarAvg < 30 && solarCoupled >= 50) {
-        add('☀️', '', `<b>Слънчев излишък в региона:</b> и БГ (${N(fmtPrice(bgSolarAvg))}), и Гърция (${N(fmtPrice(grSolarAvg))}) падат до ниски цени през 10–16 ч, с обвързан пазар — регионален, не само локален излишък на слънчева енергия.`);
+        add('☀️', '', `<b>Слънчев излишък в региона:</b> и БГ (${N(fmtPrice(bgSolarAvg))}), и Гърция (${N(fmtPrice(grSolarAvg))}) падат до ниски цени през 10–16 ч, с обвързан пазар — регионален, не само локален излишък на слънчева енергия.${weekendNote}`);
       } else if (solarNetGrAvg < allNetGrAvg * 0.6) {
-        add('🔋', '', `През слънчевите часове (10–16 ч) цената в БГ падна до ${N(fmtPrice(bgSolarAvg))}, но обменът със съседите остана слаб спрямо денонощната средна — вероятно батериите поемат по-голямата част от излишъка, вместо той да се изнася.`);
+        add('🔋', '', `През слънчевите часове (10–16 ч) цената в БГ падна до ${N(fmtPrice(bgSolarAvg))}, но обменът със съседите остана слаб спрямо денонощната средна — вероятно батериите поемат по-голямата част от излишъка, вместо той да се изнася.${weekendNote}`);
       } else {
-        add('☀️', '', `През слънчевите часове (10–16 ч) БГ цената падна до ${N(fmtPrice(bgSolarAvg))}, придружено от засилен износ към Гърция — излишъкът основно се изнася, не се съхранява.`);
+        add('☀️', '', `През слънчевите часове (10–16 ч) БГ цената падна до ${N(fmtPrice(bgSolarAvg))}, придружено от засилен износ към Гърция — излишъкът основно се изнася, не се съхранява.${weekendNote}`);
       }
     }
 
