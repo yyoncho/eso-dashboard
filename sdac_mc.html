@@ -314,9 +314,46 @@ function fmtWindow(rows, w) {
 // i18n translator (see i18n.js), instead of numbers embedded mid-sentence.
 function N(v) { return `<span>${v}</span>`; }
 
-function buildReport(rows, solarChargeAvg) {
+// Post-factum "is this a top-5 day" callout, backed by the precomputed
+// eso-data/data/ibex_sdac/daily_summary.json (see compute_sdac_records.py).
+// Kept small on purpose -- only the metrics already surfaced elsewhere on
+// this page, so a "top 5" claim always ties back to a number the reader can
+// already see (money flow, battery spread, interconnector saturation,
+// price gap).
+const RECORD_METRICS = [
+  { key: 'money_flow', label: 'пари от обмена', fmt: v => `${Math.round(v).toLocaleString('bg-BG')} €` },
+  { key: 'batt_spread_rev', label: 'спред за 4-часова батерия', fmt: v => `${v.toFixed(1)} €/MW` },
+  { key: 'cong_gr_pct', label: 'насищане на интерконектора с Гърция', fmt: v => `${v}%` },
+  { key: 'cong_ro_pct', label: 'насищане на интерконектора с Румъния', fmt: v => `${v}%` },
+  { key: 'spread_gr_abs', label: 'ценова разлика с Гърция', fmt: v => `${v.toFixed(1)} EUR/MWh` },
+  { key: 'spread_ro_abs', label: 'ценова разлика с Румъния', fmt: v => `${v.toFixed(1)} EUR/MWh` },
+];
+const MIN_SAMPLE_FOR_RECORDS = 20;
+
+function findRecordHighlights(summary, dateStr) {
+  if (!summary || !summary.days || summary.days.length < MIN_SAMPLE_FOR_RECORDS) return [];
+  const highlights = [];
+  for (const m of RECORD_METRICS) {
+    const ranked = summary.days
+      .filter(d => d[m.key] != null)
+      .map(d => ({ date: d.date, value: d[m.key] }))
+      .sort((a, b) => b.value - a.value);
+    const idx = ranked.findIndex(v => v.date === dateStr);
+    if (idx !== -1 && idx < 5) {
+      highlights.push({ rank: idx + 1, total: ranked.length, metric: m, value: ranked[idx].value });
+    }
+  }
+  highlights.sort((a, b) => a.rank - b.rank);
+  return highlights;
+}
+
+function buildReport(rows, solarChargeAvg, summary, dateStr) {
   const items = [];
   const add = (icon, cls, html) => items.push({ icon, cls, html });
+
+  for (const h of findRecordHighlights(summary, dateStr).slice(0, 2)) {
+    add('🏆', 'ok', `Този ден е №${N(h.rank)} от последните ${N(h.total)} дни по <b>${h.metric.label}</b> (${N(h.metric.fmt(h.value))}).`);
+  }
 
   const coupledGrPct = pct(rows, r => r.coupledGr);
   const coupledRoPct = pct(rows, r => r.coupledRo);
@@ -609,6 +646,14 @@ async function fetchSolarChargeAvg(dateStr) {
   return n > 0 ? sum / n : null;
 }
 
+let dailySummaryPromise = null;
+function getDailySummary() {
+  // Fetched once and reused across day navigations -- it covers the whole
+  // archive, not just the currently viewed date.
+  if (!dailySummaryPromise) dailySummaryPromise = getJSON(`${BASE}/ibex_sdac/daily_summary.json`);
+  return dailySummaryPromise;
+}
+
 async function loadDay(dateStr) {
   const statusEl = document.getElementById('status');
   const contentEl = document.getElementById('content');
@@ -616,9 +661,10 @@ async function loadDay(dateStr) {
   statusEl.style.display = '';
   statusEl.textContent = 'Зареждане…';
 
-  const [day, solarChargeAvg] = await Promise.all([
+  const [day, solarChargeAvg, summary] = await Promise.all([
     getJSON(`${BASE}/ibex_sdac/${dateStr}.json`),
     fetchSolarChargeAvg(dateStr),
+    getDailySummary(),
   ]);
   if (!day || !day.periods || !day.periods.length) {
     statusEl.textContent = `Няма данни за ${dateStr}.`;
@@ -641,7 +687,7 @@ async function loadDay(dateStr) {
 
   setKpis(rows);
   setBattery4h(rows);
-  renderReport(buildReport(rows, solarChargeAvg));
+  renderReport(buildReport(rows, solarChargeAvg, summary, dateStr));
   renderPriceChart(rows);
   renderFlowPanel('chart-flow-gr', rows, 'netGr', 'capImportGr', 'capExportGr', 'congestedGr', 'Гърция', COL.gr);
   renderFlowPanel('chart-flow-ro', rows, 'netRo', 'capImportRo', 'capExportRo', 'congestedRo', 'Румъния', COL.ro);
