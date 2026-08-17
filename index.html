@@ -2049,19 +2049,7 @@ async function refresh() {
 
     const dateStr = currentDay || todayStr();
     const isToday = currentDay === null;
-    // live.jsonl replaces today.jsonl (renamed to dodge a GitHub raw-CDN
-    // rate-limit tripped on the old path); fall back to the old name in case
-    // the VPS alias script hasn't rolled out the new file yet.
-    let records;
-    if (isToday) {
-      try {
-        records = await getJSONL(`${BASE}/live.jsonl`);
-      } catch (_) {
-        records = await getJSONL(`${BASE}/today.jsonl`);
-      }
-    } else {
-      records = await getJSONL(`${BASE}/${dateStr}.jsonl`);
-    }
+    const records = await getJSONL(isToday ? `${BASE}/today.jsonl` : `${BASE}/${dateStr}.jsonl`);
 
     // Also load previous day to pick up 00:00–01:00 Sofia records that landed there
     // (happens when date_bg was computed with UTC+2 but Sofia is UTC+3 in summer)
