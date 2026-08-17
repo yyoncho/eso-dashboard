@@ -208,6 +208,12 @@ const BASE = location.hostname === 'localhost' ? '/eso-data/data' : REMOTE_BASE;
 const COL = { bg: '#004494', gr: '#544fc5', ro: '#2caffe', rent: '#eda100', warn: '#c0392b', ok: '#2a8a2a' };
 const COUPLE_EUR = 1.0;     // price diff <= this => "coupled"
 const CONGEST_UTIL = 0.9;   // flow >= this fraction of available capacity => "saturated"
+// On touch/narrow screens, drag/pinch box-zoom fights page scrolling and
+// narrows the chart to an accidental range; disabling it also stops it from
+// swallowing taps meant for the legend (a light touch-drag reads as a failed
+// zoom gesture rather than a tap). Hover/tooltips and legend click-to-toggle
+// still work with zoom off.
+const IS_MOBILE = window.matchMedia('(max-width: 640px)').matches || 'ontouchstart' in window;
 
 let allDates = [];
 let currentDate = null;
@@ -577,8 +583,9 @@ function renderPriceChart(rows) {
   ], {
     height: 340,
     margin: { t: 16, r: 16, b: 40, l: 52 },
-    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
-    yaxis: { title: { text: 'EUR/MWh', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#c0392b' },
+    dragmode: IS_MOBILE ? false : 'zoom',
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12, fixedrange: IS_MOBILE },
+    yaxis: { title: { text: 'EUR/MWh', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#c0392b', fixedrange: IS_MOBILE },
     legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 11 } },
     plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
   }, { responsive: true, displayModeBar: false });
@@ -616,8 +623,9 @@ function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, congKey
     height: 340,
     margin: { t: 22, r: 16, b: 34, l: 52 },
     title: { text: `БГ ↔ ${label}  (+ = внос в БГ; ● = наситен капацитет)`, font: { size: 11.5, color: '#5a6a80' }, x: 0 },
-    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
-    yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad' },
+    dragmode: IS_MOBILE ? false : 'zoom',
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12, fixedrange: IS_MOBILE },
+    yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', zeroline: true, zerolinecolor: '#8a99ad', fixedrange: IS_MOBILE },
     showlegend: false,
     annotations: [
       { x: x[li], y: importY[li], xref: 'x', yref: 'y', xanchor: 'left', yanchor: 'bottom', yshift: 4,
