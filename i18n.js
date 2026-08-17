@@ -581,6 +581,8 @@
     ['Цена', 'Price'],
     ['цена', 'price'],
     ['Дата', 'Date'],
+    ['Общо производство', 'Total generation'],
+    ['Общо потребление', 'Total consumption'],
     ['Товар', 'Load'],
     ['Внос', 'Imports'],
     ['Износ', 'Exports'],

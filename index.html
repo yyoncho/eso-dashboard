@@ -394,6 +394,16 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
         <div id="balance-info" class="info-dropdown">Стойностите са изчислени по IBEX дневна цена (борсова цена Day-Ahead). Те са само илюстративни — не отразяват реални договорни цени, такси за достъп до мрежата или крайни финансови стойности. Печалбата от арбитраж на ССЕЕ (Δ) е изчислена като разлика между приход от разреждане и разход за зареждане по борсова цена — реалният финансов резултат зависи от договорните условия на оператора.</div>
         <div class="panel-body">
           <div class="balance-grid">
+            <div class="balance-item">
+              <div class="balance-label">Общо производство</div>
+              <div class="balance-val neutral" id="b-gen-total">—</div>
+              <div class="stat-unit" id="b-gen-total-sub">—</div>
+            </div>
+            <div class="balance-item">
+              <div class="balance-label">Общо потребление</div>
+              <div class="balance-val neutral" id="b-load-total">—</div>
+              <div class="stat-unit" id="b-load-total-sub">—</div>
+            </div>
             <div class="balance-item expense">
               <div class="balance-label">Внос</div>
               <div class="balance-val expense" id="b-import-eur">—</div>
@@ -1180,24 +1190,16 @@ function updateStatusCards(latest, pd) {
   const bSt  = battState(bMw);
   const pumpsNow  = latest['pumps_mw'] || 0;
 
-  const cards = [
-    { label: 'ФЕЦ',        color: '#fa4b42', v: latest['ФЕЦ']||0,
-      unit: 'MW' },
-    { label: 'АЕЦ',        color: '#2caffe', v: latest['АЕЦ']||0,
-      unit: 'MW' },
-    { label: 'ВЕЦ',        color: '#6b8abc', v: latest['ВЕЦ']||0,
-      unit: 'MW' },
-    { label: 'М.ВЕЦ',      color: '#d568fb', v: latest['Малки ВЕЦ']||0,
-      unit: 'MW' },
-    { label: 'ВяЕЦ',       color: '#2ee0ca', v: latest['ВяЕЦ']||0,
-      unit: 'MW' },
-    { label: 'ССЕЕ',       color: '#7b3fa0',
-      v: bSt==='charging' ? -Math.abs(bMw) : Math.abs(bMw),
-      unit: bSt==='charging' ? 'MW — зар.' : bSt==='discharging' ? 'MW — разр.' : 'MW' },
-  ];
-  if (pumpsNow > 0) cards.push({ label: 'Помпи зар.', color: '#0369a1', v: -pumpsNow, unit: 'MW' });
+  // Every generation source shown in the pie chart (GEN_SERIES), so no type
+  // is missing from the top card row.
+  const cards = GEN_SERIES.map(s => ({ label: s.label, color: s.color, v: latest[s.key]||0, unit: 'MW' }));
 
-
+  // ССЕЕ + pumps compounded into one storage card (both are the same
+  // "charge now, discharge/generate later" behavior) instead of two.
+  const battMw  = bSt==='charging' ? -Math.abs(bMw) : Math.abs(bMw);
+  const storageMw = battMw - pumpsNow;
+  cards.push({ label: 'ССЕЕ + Помпи', color: '#7b3fa0', v: storageMw,
+    unit: storageMw < 0 ? 'MW — зар.' : storageMw > 0 ? 'MW — разр.' : 'MW' });
 
   cards.sort((a, b) => b.v - a.v);
 
@@ -1295,6 +1297,7 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
 
   let impMwh=0, expMwh=0, impEur=0, expEur=0, pSum=0, pN=0, pMin=Infinity, pMax=-Infinity;
   let battChgMwh=0, battDisMwh=0, pumpsChgMwh=0, pumpsChgEur=0;
+  let genMwh=0, loadMwh=0;
   for (const b of binned) {
     const mw = b['net_import_mw']; if (!isFinite(mw)) continue;
     const mwh = mw*(15/60);
@@ -1313,10 +1316,19 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
       pumpsChgMwh += pumps * (15/60);
       if (isFinite(p)) pumpsChgEur += pumps * (15/60) * p;
     }
+    const gen  = b['gen_total_mw'];
+    const load = b['load_mw'];
+    if (isFinite(gen))  genMwh  += gen  * (15/60);
+    if (isFinite(load)) loadMwh += load * (15/60);
   }
   const net = expEur - impEur;
   const avgImpPrice = impMwh > 0 ? impEur / impMwh : NaN;
   const avgExpPrice = expMwh > 0 ? expEur / expMwh : NaN;
+  document.getElementById('b-gen-total').textContent  = fmt1(genMwh/1000) + ' GWh';
+  document.getElementById('b-gen-total-sub').textContent  = fmt0(genMwh) + ' MWh';
+  document.getElementById('b-load-total').textContent = fmt1(loadMwh/1000) + ' GWh';
+  document.getElementById('b-load-total-sub').textContent = fmt0(loadMwh) + ' MWh';
+
   // Sign convention: positive = revenue (green), negative = cost (red)
   // impEur > 0 = paid for import (cost → show as negative); impEur < 0 = earned from import at neg price
   const impDisplay = -impEur;
