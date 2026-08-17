@@ -1858,8 +1858,11 @@ function drawTimeline(binned, pd, dateStr) {
   Plotly.react('chart-timeline', traces, {
     ...LO,
     uirevision: `timeline-${reMode}-${eurMode}`,
-    xaxis: { ...LO.xaxis, type: 'date', title: 'Час' },
-    yaxis:  { ...LO.yaxis, title: yUnit },
+    // dragmode:false (in LO) blocks click/touch-drag zoom already; pinch-zoom
+    // is a separate touch gesture it doesn't cover, so pin the axes too on
+    // narrow screens -- otherwise a two-finger pinch can still narrow the chart.
+    xaxis: { ...LO.xaxis, type: 'date', title: 'Час', fixedrange: window.innerWidth < 640 },
+    yaxis:  { ...LO.yaxis, title: yUnit, fixedrange: window.innerWidth < 640 },
     yaxis2: { title: 'EUR/MWh', overlaying: 'y', side: 'right',
               gridcolor: 'transparent', linecolor: '#e07000',
               tickfont: { size: 9, color: '#e07000' }, titlefont: { size: 10, color: '#e07000' } },
@@ -1925,8 +1928,8 @@ function drawFlowsTimeline(binned, pd) {
   Plotly.react('chart-flows-ts', traces, {
     ...LO,
     uirevision: 'flows',
-    xaxis: { ...LO.xaxis, type: 'date', title: 'Час' },
-    yaxis: { ...LO.yaxis, title: `${unit} (+ внос / − износ)` },
+    xaxis: { ...LO.xaxis, type: 'date', title: 'Час', fixedrange: window.innerWidth < 640 },
+    yaxis: { ...LO.yaxis, title: `${unit} (+ внос / − износ)`, fixedrange: window.innerWidth < 640 },
     legend: { ...LO.legend, orientation: 'h', y: window.innerWidth < 640 ? -0.28 : -0.2 },
     margin: { t: 8, b: window.innerWidth < 640 ? 120 : 90, l: 58, r: 10 },
     shapes: [{ type:'line', xref:'paper', x0:0, x1:1, y0:0, y1:0,
