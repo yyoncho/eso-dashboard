@@ -626,13 +626,22 @@ if (_initHash.hidden) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════════════════════════════
+// Cache-bust at a coarse granularity (not Date.now()) so concurrent/repeat
+// loads within the same window share GitHub's CDN cache instead of each
+// forcing a fresh origin fetch on the same URL -- with real traffic, a
+// per-millisecond buster turns every visitor's load into a guaranteed cache
+// MISS on raw.githubusercontent.com, which is what trips its rate limit for
+// everyone. Data changes at most every 5 min (VPS cron), so a 1-min bucket
+// is still fresh enough.
+function cacheBucket() { return Math.floor(Date.now() / 60000); }
+
 async function getJSON(url) {
-  const r = await fetch(url + '?_=' + Date.now());
+  const r = await fetch(url + '?_=' + cacheBucket());
   if (!r.ok) throw new Error(r.status);
   return r.json();
 }
 async function getJSONL(url) {
-  const r = await fetch(url + '?_=' + Date.now());
+  const r = await fetch(url + '?_=' + cacheBucket());
   if (!r.ok) throw new Error(r.status);
   const text = await r.text();
   return text.trim().split('\n').filter(Boolean).map(l => {
