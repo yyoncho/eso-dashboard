@@ -632,15 +632,19 @@ if (_initHash.hidden) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════════════════════════════
+const FETCH_TIMEOUT_MS = 6000;
 async function fetchWithFallback(url) {
   try {
-    const r = await fetch(url + '?_=' + Date.now());
+    // A stalled connection to a degraded backend never rejects on its own --
+    // AbortController forces a timeout so a hung primary request still falls
+    // back instead of leaving the page stuck on "Зареждане…" indefinitely.
+    const r = await fetch(url + '?_=' + Date.now(), { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!r.ok) throw new Error(r.status);
     return r;
   } catch (e) {
     if (!url.startsWith(BASE)) throw e;
     const fallbackUrl = FALLBACK_BASE + url.slice(BASE.length);
-    const r2 = await fetch(fallbackUrl);
+    const r2 = await fetch(fallbackUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!r2.ok) throw new Error(r2.status);
     return r2;
   }
