@@ -64,6 +64,14 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
 }
 .past-banner.show { display: block; }
 
+/* ── GitHub-degraded / stale-fallback banner ── */
+.fallback-banner {
+  display: none; background: #fdecea; border-bottom: 2px solid #d64545;
+  padding: 6px 20px; font-size: 0.8rem; color: #7a1f1f; font-weight: 600;
+  text-align: center; letter-spacing: 0.02em;
+}
+.fallback-banner.show { display: block; }
+
 /* ── content ── */
 .content { max-width: 1600px; margin: 0 auto; padding: 14px 20px 30px; }
 
@@ -295,6 +303,9 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
 
 <div class="past-banner" id="past-banner">
   📅 Исторически данни — показват се архивни записи, не актуална информация
+</div>
+<div class="fallback-banner" id="fallback-banner">
+  ⚠️ GitHub в момента има проблеми с достъпа до данните — показва се резервно (остаряло) копие
 </div>
 <div id="snap-scrubber">
   <span style="font-size:0.75rem;color:#5a7090;white-space:nowrap;">Снимка:</span>
@@ -631,7 +642,7 @@ if (_initHash.hidden) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════════════════════════════
-const FETCH_TIMEOUT_MS = 6000;
+const FETCH_TIMEOUT_MS = 2000;
 async function fetchWithFallback(url) {
   try {
     // A stalled connection to a degraded backend never rejects on its own --
@@ -645,6 +656,7 @@ async function fetchWithFallback(url) {
     const fallbackUrl = FALLBACK_BASE + url.slice(BASE.length);
     const r2 = await fetch(fallbackUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!r2.ok) throw new Error(r2.status);
+    document.getElementById('fallback-banner').classList.add('show');
     return r2;
   }
 }
@@ -1993,6 +2005,7 @@ function onSnapSlider(val) {
 //  MAIN REFRESH
 // ══════════════════════════════════════════════════════════════════════════════
 async function refresh() {
+  document.getElementById('fallback-banner').classList.remove('show');
   try {
     const idx = await getJSON(`${BASE}/index.json`);
     allDates = idx.dates || [];

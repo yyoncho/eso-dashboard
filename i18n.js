@@ -388,6 +388,8 @@
     ['ЕСО ЕАД', 'ESO EAD'],
     ['Исторически данни — показват се архивни записи, не актуална информация',
      'Historical data — showing archived records, not live information'],
+    ['GitHub в момента има проблеми с достъпа до данните — показва се резервно (остаряло) копие',
+     'GitHub is currently having data-access issues — showing a backup (stale) copy'],
     ['Исторически ден — не е в реално време', 'Historical day — not real-time'],
     ['Рекорди — ВЕИ и ССЕЕ', 'Records — RES & BESS'],
     ['Пълна история на рекордите', 'Full record history'],
