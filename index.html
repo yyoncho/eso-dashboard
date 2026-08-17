@@ -394,16 +394,6 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
         <div id="balance-info" class="info-dropdown">Стойностите са изчислени по IBEX дневна цена (борсова цена Day-Ahead). Те са само илюстративни — не отразяват реални договорни цени, такси за достъп до мрежата или крайни финансови стойности. Печалбата от арбитраж на ССЕЕ (Δ) е изчислена като разлика между приход от разреждане и разход за зареждане по борсова цена — реалният финансов резултат зависи от договорните условия на оператора.</div>
         <div class="panel-body">
           <div class="balance-grid">
-            <div class="balance-item">
-              <div class="balance-label">Общо производство</div>
-              <div class="balance-val neutral" id="b-gen-total">—</div>
-              <div class="stat-unit" id="b-gen-total-sub">—</div>
-            </div>
-            <div class="balance-item">
-              <div class="balance-label">Общо потребление</div>
-              <div class="balance-val neutral" id="b-load-total">—</div>
-              <div class="stat-unit" id="b-load-total-sub">—</div>
-            </div>
             <div class="balance-item expense">
               <div class="balance-label">Внос</div>
               <div class="balance-val expense" id="b-import-eur">—</div>
@@ -980,6 +970,7 @@ function updateTotalStats(binned, pd, dateStr) {
   totals['_batt'] = 0; mwhTotals['_batt'] = 0; eurTotals['_batt'] = 0;
   let battChgCost = 0, battChgMwh = 0;
   let pumpsChgCost = 0, pumpsChgMwh = 0;
+  let loadMwh = 0;
   for (const b of binned) {
     const mwhScale = (15/60) / 1000;
     const pr = priceByBin[b.ts] ?? NaN;
@@ -1004,6 +995,8 @@ function updateTotalStats(binned, pd, dateStr) {
     totals['_batt'] += bd * scale;
     mwhTotals['_batt'] += bd * mwhScale;
     if (eurScale !== null) eurTotals['_batt'] += bd * eurScale;
+
+    loadMwh += Math.max(0, b['load_mw'] || 0) * mwhScale;
   }
   const unit = eurMode ? 'млн.€' : 'GWh';
   const dec  = eurMode ? 2 : 3;
@@ -1022,8 +1015,14 @@ function updateTotalStats(binned, pd, dateStr) {
   const keyItem = (color, label, key) => statItem(color, label, totals[key].toFixed(dec), unit, priceTag(key));
 
   const sources = (reMode ? GEN_SERIES.filter(s => RE_KEYS.has(s.key)) : GEN_SERIES)
-    .filter(s => !hiddenGenKeys.has(s.key))
-    .sort((a, b) => totals[b.key] - totals[a.key]);
+    .filter(s => !hiddenGenKeys.has(s.key));
+  // ССЕЕ discharge behaves like a generation source (it's a positive
+  // contribution to the mix), so it sorts alongside the real sources by
+  // value instead of always being pinned after them regardless of size.
+  if (!reMode && !hiddenGenKeys.has('_batt')) {
+    sources.push({ key: '_batt', label: 'ССЕЕ разр.', color: '#f59f00' });
+  }
+  sources.sort((a, b) => totals[b.key] - totals[a.key]);
   const battEurDis = eurTotals['_batt'];
   const battDelta  = battEurDis - battChgCost;
   const disMwh = mwhTotals['_batt'] * 1000, chgMwh = battChgMwh * 1000;
@@ -1057,9 +1056,15 @@ function updateTotalStats(binned, pd, dateStr) {
   }
 
   let html = '';
+  // Headline totals -- always in GWh regardless of the €/GWh toggle (a
+  // "total consumption revenue" figure wouldn't mean anything).
+  if (!reMode) {
+    const genTotalGwh = GEN_SERIES.reduce((s, k) => s + mwhTotals[k.key], 0) + mwhTotals['_batt'];
+    html += statItem('#004494', 'Общо производство', genTotalGwh.toFixed(1), 'GWh');
+    html += statItem('#8a3a00', 'Общо потребление',  loadMwh.toFixed(1),     'GWh');
+  }
   for (const s of sources) html += keyItem(s.color, s.label, s.key);
   if (!reMode && !hiddenGenKeys.has('_batt')) {
-    html += keyItem('#f59f00', 'ССЕЕ разр.', '_batt');
     if (eurMode) {
       const chgSub = battChgMwh > 0 ? `<div style="font-size:0.58rem;color:#8a9ab0;margin-top:1px;">@ ${(battChgCost*1e6/(battChgMwh*1000)).toFixed(0)} €/MWh</div>` : '';
       html += statItem('#8e24aa', 'ССЕЕ зар.', (-battChgCost).toFixed(dec), unit, chgSub);
@@ -1324,11 +1329,6 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
   const net = expEur - impEur;
   const avgImpPrice = impMwh > 0 ? impEur / impMwh : NaN;
   const avgExpPrice = expMwh > 0 ? expEur / expMwh : NaN;
-  document.getElementById('b-gen-total').textContent  = fmt1(genMwh/1000) + ' GWh';
-  document.getElementById('b-gen-total-sub').textContent  = fmt0(genMwh) + ' MWh';
-  document.getElementById('b-load-total').textContent = fmt1(loadMwh/1000) + ' GWh';
-  document.getElementById('b-load-total-sub').textContent = fmt0(loadMwh) + ' MWh';
-
   // Sign convention: positive = revenue (green), negative = cost (red)
   // impEur > 0 = paid for import (cost → show as negative); impEur < 0 = earned from import at neg price
   const impDisplay = -impEur;
