@@ -75,6 +75,7 @@ header a:hover { color: #fff; }
   overflow: hidden;
   touch-action: none;
 }
+@media (max-width: 640px) { .compare-wrap { height: 380px; } }
 .compare-wrap .chart-layer {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
 }
@@ -144,7 +145,7 @@ header a:hover { color: #fff; }
   <div class="panel">
     <div class="panel-header">
       <span>Микс на производство — денонощен профил</span>
-      <button class="info-btn" onclick="document.getElementById('compare-info').classList.toggle('open')" title="Информация">?</button>
+      <button class="info-btn" onclick="event.stopPropagation(); document.getElementById('compare-info').classList.toggle('open')" title="Информация">?</button>
     </div>
     <div class="panel-body">
       <div id="status">Зареждане…</div>
@@ -249,11 +250,14 @@ function renderStack(elId, dataRaw, title, yMax) {
     line: { color: '#1a2233', width: 2, dash: 'dot' },
     hovertemplate: `Товар: %{y:.0f} MW<extra></extra>`,
   });
+  const wrapEl = document.getElementById('compare-wrap');
+  const chartHeight = wrapEl ? wrapEl.clientHeight : 620;
+  const narrow = window.innerWidth < 640;
   Plotly.newPlot(elId, traces, {
-    height: 620,
-    margin: { t: 30, r: 12, b: 34, l: 46 },
+    height: chartHeight,
+    margin: { t: 30, r: 12, b: 34, l: narrow ? 36 : 46 },
     title: { text: title, font: { size: 11, color: '#5a6a80' }, x: 0.02 },
-    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 9 }, nticks: 12 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 9 }, nticks: narrow ? 6 : 12 },
     // Fixed, shared range across both charts (not each auto-scaled to its
     // own peak) -- otherwise the drag-reveal comparison is visually
     // dishonest: a smaller stack on one side would look artificially as
@@ -323,6 +327,13 @@ function main() {
 }
 
 main();
+
+document.addEventListener('click', (e) => {
+  const info = document.getElementById('compare-info');
+  if (info.classList.contains('open') && !e.target.closest('.info-btn') && !e.target.closest('#compare-info')) {
+    info.classList.remove('open');
+  }
+});
 </script>
 </body>
 </html>
