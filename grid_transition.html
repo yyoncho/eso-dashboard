@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тогава срещу сега — трансформацията на мрежата</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="i18n.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: #eef3f8; color: #1a2233; font-size: 14px; }
+
+header {
+  background: linear-gradient(180deg, #004494 0%, #003070 100%);
+  color: #fff;
+  border-bottom: 3px solid #ffd700;
+}
+.header-inner {
+  max-width: 1600px; margin: 0 auto; padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1rem; font-weight: 700; }
+header a  { color: rgba(255,255,255,0.72); font-size: 0.78rem; text-decoration: none; }
+header a:hover { color: #fff; }
+
+.page { max-width: 1600px; margin: 0 auto; padding: 14px 20px 30px; }
+
+.panel {
+  background: #fff;
+  border: 1px solid #c5d8ee;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.panel-header {
+  background: #e8f0fa;
+  border-bottom: 1px solid #c5d8ee;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #003070;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-body { padding: 14px 16px; }
+
+.info-btn { background:none;border:1px solid #7a9bc4;color:#5a7090;border-radius:50%;width:16px;height:16px;font-size:0.65rem;font-weight:700;cursor:pointer;line-height:1;padding:0;flex-shrink:0; }
+.info-btn:hover { background:#e8f0fa; }
+.info-dropdown { display:none;font-size:0.72rem;color:#4a5a7a;background:#eef3fb;border-top:1px solid #c5d8ee;padding:10px 16px;line-height:1.6; }
+.info-dropdown.open { display:block; }
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+@media (max-width: 640px) { .kpi-row { grid-template-columns: 1fr; } }
+.kpi-col { border-radius: 6px; padding: 12px 14px; }
+.kpi-col.old { background: #f5f0e8; border: 1px solid #d8c9a8; }
+.kpi-col.new { background: #eaf3fd; border: 1px solid #b3d4f5; }
+.kpi-col-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+.kpi-col.old .kpi-col-title { color: #8a6a2a; }
+.kpi-col.new .kpi-col-title { color: #1a5aa0; }
+.kpi-mini-row { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: 0.8rem; }
+.kpi-mini-label { color: #5a6a80; }
+.kpi-mini-val { font-weight: 700; }
+
+.compare-wrap {
+  position: relative;
+  height: 620px;
+  user-select: none;
+  border-radius: 4px;
+  overflow: hidden;
+  touch-action: none;
+}
+.compare-wrap .chart-layer {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+}
+#chart-new-wrap { clip-path: inset(0 0 0 60%); }
+.handle {
+  position: absolute; top: 0; bottom: 0; left: 60%;
+  width: 0; z-index: 5;
+  transform: translateX(-50%);
+}
+.handle-line { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); transform: translateX(-50%); }
+.handle-grip {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 34px; height: 34px; border-radius: 50%;
+  background: #fff; border: 2px solid #004494; color: #004494;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem; font-weight: 700; cursor: ew-resize;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.side-tag {
+  position: absolute; top: 8px; font-size: 0.68rem; font-weight: 700;
+  padding: 3px 8px; border-radius: 4px; letter-spacing: 0.03em; z-index: 4;
+  pointer-events: none;
+}
+.side-tag.old { left: 10px; background: rgba(138,106,42,0.9); color: #fff; }
+.side-tag.new { right: 10px; background: rgba(26,90,160,0.9); color: #fff; }
+
+.legend-row { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 10px; font-size: 0.72rem; color: #4a5a7a; }
+.legend-item { display: flex; align-items: center; gap: 5px; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+.note { font-size: 0.7rem; color: #6a7a90; margin-top: 10px; line-height: 1.65; border-top: 1px solid #e8f0fa; padding-top: 8px; }
+#status { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1>⚡ Тогава срещу сега — трансформацията на мрежата</h1>
+    <a href="index.html">← Табло</a>
+    <span id="lang-flags" style="margin-left:10px;"></span>
+  </div>
+</header>
+
+<div class="page">
+
+  <div class="panel">
+    <div class="panel-header">Два дни, почти еднакво потребление и износ — различна енергийна система</div>
+    <div class="panel-body">
+      <div class="kpi-row">
+        <div class="kpi-col old">
+          <div class="kpi-col-title">26 юни 2022 — енергийна криза</div>
+          <div class="kpi-mini-row"><span class="kpi-mini-label">Потребление</span><span class="kpi-mini-val" id="kv-old-demand">—</span></div>
+          <div class="kpi-mini-row"><span class="kpi-mini-label">Нетен износ</span><span class="kpi-mini-val" id="kv-old-export">—</span></div>
+          <div class="kpi-mini-row"><span class="kpi-mini-label">Въглища</span><span class="kpi-mini-val" id="kv-old-coal">—</span></div>
+        </div>
+        <div class="kpi-col new">
+          <div class="kpi-col-title" id="new-day-title">17 август 2026 — днес</div>
+          <div class="kpi-mini-row"><span class="kpi-mini-label">Потребление</span><span class="kpi-mini-val" id="kv-new-demand">—</span></div>
+          <div class="kpi-mini-row"><span class="kpi-mini-label">Нетен износ</span><span class="kpi-mini-val" id="kv-new-export">—</span></div>
+          <div class="kpi-mini-row"><span class="kpi-mini-label">Въглища</span><span class="kpi-mini-val" id="kv-new-coal">—</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Микс на производство — денонощен профил</span>
+      <button class="info-btn" onclick="document.getElementById('compare-info').classList.toggle('open')" title="Информация">?</button>
+    </div>
+    <div class="panel-body">
+      <div id="status">Зареждане…</div>
+      <div class="compare-wrap" id="compare-wrap" style="display:none">
+        <div class="chart-layer" id="chart-old-wrap"><div id="chart-old" style="width:100%;height:100%;"></div></div>
+        <div class="chart-layer" id="chart-new-wrap"><div id="chart-new" style="width:100%;height:100%;"></div></div>
+        <div class="side-tag old">2022</div>
+        <div class="side-tag new">2026</div>
+        <div class="handle" id="handle">
+          <div class="handle-line"></div>
+          <div class="handle-grip">⇄</div>
+        </div>
+      </div>
+      <div class="legend-row" id="legend-row"></div>
+      <div class="note">
+        Плъзнете кръга наляво/надясно, за да разкриете повече от единия или другия ден. И двата графика показват MW по източник, по часове (българско местно време), на еднаква скala.
+      </div>
+    </div>
+    <div id="compare-info" class="info-dropdown">
+      <b>Как е избран денят от 2022:</b> търсене сред всички летни дни (юни–август) на 2022–2025 г. по най-близко едновременно съвпадение по дневно потребление (GWh) и нетен износ (GWh) спрямо избрания днешен ден — без филтър по въглища, за да не се изкриви резултатът. 26 юни 2022 излезе на първо място по комбинирана близост.
+      <br><b>Категории на производство:</b> опростени до 7 групи, съпоставими между ENTSOE (2022 г.) и ЕСО SCADA (2026 г.) — „Въглища" обединява Кондензационни + Топлофикационни + Заводски ТЕЦ (същата конвенция, използвана в другите анализи на този проект за приемственост между източниците на данни). Батерии (ССЕЕ) не съществуваха през 2022 г.
+      <br><b>Данни:</b> ENTSOE Transparency Platform (2022) и ЕСО SCADA на 5-минутни интервали (2026), осреднени по час.
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+const OLD_DATE = '2022-06-26';
+const NEW_DATE = '2026-08-17';
+
+const OLD_DATA = [{"h": 0, "nuclear": 2111, "coal": 2199, "hydro": 272, "solar": 0, "wind": 52, "biomass": 38, "battery": 0, "demand": 3433, "net_export": 1461}, {"h": 1, "nuclear": 2112, "coal": 2130, "hydro": 228, "solar": 0, "wind": 128, "biomass": 4, "battery": 0, "demand": 3200, "net_export": 1402}, {"h": 2, "nuclear": 2113, "coal": 2002, "hydro": 160, "solar": 0, "wind": 165, "biomass": 0, "battery": 0, "demand": 3092, "net_export": 1571}, {"h": 3, "nuclear": 2114, "coal": 2157, "hydro": 238, "solar": 0, "wind": 4, "biomass": 33, "battery": 0, "demand": 3092, "net_export": 1454}, {"h": 4, "nuclear": 2118, "coal": 2220, "hydro": 236, "solar": 0, "wind": 7, "biomass": 0, "battery": 0, "demand": 3058, "net_export": 1523}, {"h": 5, "nuclear": 2119, "coal": 2175, "hydro": 224, "solar": 1, "wind": 12, "biomass": 32, "battery": 0, "demand": 3022, "net_export": 1763}, {"h": 6, "nuclear": 2119, "coal": 2161, "hydro": 243, "solar": 26, "wind": 18, "biomass": 0, "battery": 0, "demand": 3075, "net_export": 1492}, {"h": 7, "nuclear": 2119, "coal": 2215, "hydro": 257, "solar": 99, "wind": 30, "biomass": 33, "battery": 0, "demand": 3266, "net_export": 1708}, {"h": 8, "nuclear": 2118, "coal": 2211, "hydro": 337, "solar": 235, "wind": 0, "biomass": 0, "battery": 0, "demand": 3585, "net_export": 1538}, {"h": 9, "nuclear": 2117, "coal": 2236, "hydro": 174, "solar": 401, "wind": 31, "biomass": 34, "battery": 0, "demand": 3828, "net_export": 1384}, {"h": 10, "nuclear": 2116, "coal": 2131, "hydro": 430, "solar": 567, "wind": 34, "biomass": 4, "battery": 0, "demand": 3853, "net_export": 1645}, {"h": 11, "nuclear": 2117, "coal": 2182, "hydro": 431, "solar": 648, "wind": 57, "biomass": 0, "battery": 0, "demand": 3914, "net_export": 1735}, {"h": 12, "nuclear": 2116, "coal": 2133, "hydro": 416, "solar": 635, "wind": 64, "biomass": 0, "battery": 0, "demand": 3911, "net_export": 1453}, {"h": 13, "nuclear": 2115, "coal": 2268, "hydro": 353, "solar": 594, "wind": 50, "biomass": 0, "battery": 0, "demand": 3881, "net_export": 1499}, {"h": 14, "nuclear": 2114, "coal": 2234, "hydro": 336, "solar": 522, "wind": 29, "biomass": 33, "battery": 0, "demand": 3801, "net_export": 1467}, {"h": 15, "nuclear": 2113, "coal": 2325, "hydro": 439, "solar": 410, "wind": 12, "biomass": 0, "battery": 0, "demand": 3805, "net_export": 1494}, {"h": 16, "nuclear": 2112, "coal": 2208, "hydro": 477, "solar": 305, "wind": 16, "biomass": 32, "battery": 0, "demand": 3865, "net_export": 1285}, {"h": 17, "nuclear": 2109, "coal": 2255, "hydro": 623, "solar": 202, "wind": 9, "biomass": 33, "battery": 0, "demand": 3973, "net_export": 1474}, {"h": 18, "nuclear": 2109, "coal": 2229, "hydro": 697, "solar": 124, "wind": 15, "biomass": 37, "battery": 0, "demand": 4034, "net_export": 1392}, {"h": 19, "nuclear": 2109, "coal": 2302, "hydro": 772, "solar": 58, "wind": 11, "biomass": 39, "battery": 0, "demand": 4040, "net_export": 1468}, {"h": 20, "nuclear": 2109, "coal": 2240, "hydro": 859, "solar": 10, "wind": 60, "biomass": 34, "battery": 0, "demand": 4012, "net_export": 1519}, {"h": 21, "nuclear": 2109, "coal": 2143, "hydro": 864, "solar": 0, "wind": 68, "biomass": 33, "battery": 0, "demand": 4029, "net_export": 1188}, {"h": 22, "nuclear": 2110, "coal": 2226, "hydro": 771, "solar": 0, "wind": 26, "biomass": 34, "battery": 0, "demand": 4042, "net_export": 1125}, {"h": 23, "nuclear": 2111, "coal": 2218, "hydro": 376, "solar": 0, "wind": 24, "biomass": 32, "battery": 0, "demand": 3761, "net_export": 1000}];
+const NEW_DATA = [{"h": 0, "nuclear": 1989, "coal": 1001, "hydro": 286, "solar": 0, "wind": 1, "biomass": 14, "battery": 1294, "demand": 3097, "net_export": 1478}, {"h": 1, "nuclear": 1989, "coal": 995, "hydro": 223, "solar": 0, "wind": 2, "biomass": 15, "battery": 149, "demand": 2957, "net_export": 414}, {"h": 2, "nuclear": 1989, "coal": 996, "hydro": 193, "solar": 0, "wind": 1, "biomass": 15, "battery": 0, "demand": 2848, "net_export": 336}, {"h": 3, "nuclear": 1989, "coal": 999, "hydro": 153, "solar": 0, "wind": 2, "biomass": 15, "battery": 0, "demand": 2821, "net_export": 212}, {"h": 4, "nuclear": 1991, "coal": 998, "hydro": 145, "solar": 0, "wind": 1, "biomass": 15, "battery": 0, "demand": 2811, "net_export": 10}, {"h": 5, "nuclear": 1992, "coal": 1001, "hydro": 171, "solar": 0, "wind": 1, "biomass": 15, "battery": 0, "demand": 2912, "net_export": 82}, {"h": 6, "nuclear": 1994, "coal": 1003, "hydro": 239, "solar": 37, "wind": 1, "biomass": 15, "battery": 0, "demand": 3140, "net_export": 148}, {"h": 7, "nuclear": 1992, "coal": 998, "hydro": 314, "solar": 591, "wind": 3, "biomass": 15, "battery": 370, "demand": 3416, "net_export": 874}, {"h": 8, "nuclear": 1992, "coal": 1003, "hydro": 225, "solar": 1976, "wind": 1, "biomass": 15, "battery": 425, "demand": 3749, "net_export": 1899}, {"h": 9, "nuclear": 1992, "coal": 982, "hydro": 203, "solar": 3371, "wind": 0, "biomass": 15, "battery": 0, "demand": 4094, "net_export": 2082}, {"h": 10, "nuclear": 1993, "coal": 1001, "hydro": 240, "solar": 4302, "wind": 0, "biomass": 15, "battery": 0, "demand": 4392, "net_export": 1568}, {"h": 11, "nuclear": 1992, "coal": 1022, "hydro": 262, "solar": 4892, "wind": 0, "biomass": 15, "battery": 0, "demand": 4455, "net_export": 1550}, {"h": 12, "nuclear": 1991, "coal": 1041, "hydro": 276, "solar": 5041, "wind": 18, "biomass": 15, "battery": 0, "demand": 4463, "net_export": 1683}, {"h": 13, "nuclear": 1988, "coal": 1062, "hydro": 279, "solar": 5076, "wind": 43, "biomass": 11, "battery": 0, "demand": 4493, "net_export": 1881}, {"h": 14, "nuclear": 1989, "coal": 1070, "hydro": 273, "solar": 5002, "wind": 53, "biomass": 11, "battery": 0, "demand": 4492, "net_export": 1695}, {"h": 15, "nuclear": 1988, "coal": 1114, "hydro": 279, "solar": 4716, "wind": 60, "biomass": 11, "battery": 0, "demand": 4469, "net_export": 1782}, {"h": 16, "nuclear": 1987, "coal": 1103, "hydro": 281, "solar": 4137, "wind": 77, "biomass": 11, "battery": 0, "demand": 4511, "net_export": 1988}, {"h": 17, "nuclear": 1987, "coal": 1140, "hydro": 411, "solar": 3090, "wind": 73, "biomass": 11, "battery": 0, "demand": 4445, "net_export": 1970}, {"h": 18, "nuclear": 1985, "coal": 1157, "hydro": 711, "solar": 1814, "wind": 59, "biomass": 11, "battery": 309, "demand": 4488, "net_export": 1554}, {"h": 19, "nuclear": 1984, "coal": 1154, "hydro": 999, "solar": 636, "wind": 52, "biomass": 11, "battery": 1699, "demand": 4291, "net_export": 2248}, {"h": 20, "nuclear": 1985, "coal": 1152, "hydro": 1294, "solar": 139, "wind": 94, "biomass": 11, "battery": 2938, "demand": 4031, "net_export": 3587}, {"h": 21, "nuclear": 1986, "coal": 1151, "hydro": 1258, "solar": 0, "wind": 123, "biomass": 11, "battery": 2775, "demand": 3832, "net_export": 3470}, {"h": 22, "nuclear": 1986, "coal": 1167, "hydro": 950, "solar": 0, "wind": 123, "biomass": 11, "battery": 2480, "demand": 3650, "net_export": 3062}, null];
+
+const CATS = [
+  { key: 'nuclear', label: 'АЕЦ',      color: '#2caffe' },
+  { key: 'coal',     label: 'Въглища', color: '#544fc5' },
+  { key: 'hydro',    label: 'ВЕЦ',     color: '#6b8abc' },
+  { key: 'wind',     label: 'ВяЕЦ',    color: '#2ee0ca' },
+  { key: 'solar',    label: 'ФЕЦ',     color: '#fa4b42' },
+  { key: 'biomass',  label: 'Биомаса', color: '#feb56a' },
+  { key: 'battery',  label: 'ССЕЕ разр.', color: '#f59f00' },
+];
+
+function fmtGwh(mwhAvgPerHour, hours) {
+  return (mwhAvgPerHour * hours / 1000).toFixed(1) + ' GWh';
+}
+
+function dayTotals(data) {
+  const rows = data.filter(Boolean);
+  const n = rows.length || 1;
+  let demand = 0, exportSum = 0, coal = 0;
+  for (const r of rows) {
+    demand += r.demand;
+    exportSum += r.net_export;
+    coal += r.coal;
+  }
+  return {
+    demandGwh: demand / 1000,
+    exportGwh: exportSum / 1000,
+    coalGwh: coal / 1000,
+    coalPct: demand > 0 ? (coal / demand * 100) : 0,
+  };
+}
+
+function fillGaps(data) {
+  const out = data.slice();
+  for (let i = 0; i < out.length; i++) {
+    if (!out[i]) out[i] = out[i - 1] || out.find(Boolean);
+  }
+  return out;
+}
+
+function stackMax(dataRaw) {
+  let m = 0;
+  for (const r of dataRaw) {
+    if (!r) continue;
+    const s = CATS.reduce((acc, c) => acc + (r[c.key] || 0), 0);
+    if (s > m) m = s;
+  }
+  return m;
+}
+
+function renderStack(elId, dataRaw, title, yMax) {
+  const data = fillGaps(dataRaw);
+  const x = data.map(r => `${String(r.h).padStart(2, '0')}:00`);
+  const traces = CATS.map(c => ({
+    x, y: data.map(r => r[c.key]),
+    name: c.label, type: 'scatter', mode: 'lines',
+    stackgroup: 'gen', fillcolor: c.color + 'cc', line: { color: c.color, width: 0.5 },
+    hovertemplate: `${c.label}: %{y:.0f} MW<extra></extra>`,
+  }));
+  traces.push({
+    x, y: data.map(r => r.demand),
+    name: 'Товар', type: 'scatter', mode: 'lines',
+    line: { color: '#1a2233', width: 2, dash: 'dot' },
+    hovertemplate: `Товар: %{y:.0f} MW<extra></extra>`,
+  });
+  Plotly.newPlot(elId, traces, {
+    height: 620,
+    margin: { t: 30, r: 12, b: 34, l: 46 },
+    title: { text: title, font: { size: 11, color: '#5a6a80' }, x: 0.02 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 9 }, nticks: 12 },
+    // Fixed, shared range across both charts (not each auto-scaled to its
+    // own peak) -- otherwise the drag-reveal comparison is visually
+    // dishonest: a smaller stack on one side would look artificially as
+    // tall as a bigger stack on the other.
+    yaxis: { title: { text: 'MW', font: { size: 10, color: '#5a6a80' } }, tickfont: { size: 10 }, gridcolor: '#e8f0fa', range: [0, yMax] },
+    showlegend: false,
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
+  }, { responsive: true, displayModeBar: false });
+}
+
+function setupDrag() {
+  const wrap = document.getElementById('compare-wrap');
+  const handle = document.getElementById('handle');
+  const newWrap = document.getElementById('chart-new-wrap');
+  let dragging = false;
+
+  function setSplit(pct) {
+    pct = Math.max(0, Math.min(100, pct));
+    handle.style.left = pct + '%';
+    newWrap.style.clipPath = `inset(0 0 0 ${pct}%)`;
+  }
+
+  function posFromEvent(e) {
+    const rect = wrap.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return (clientX - rect.left) / rect.width * 100;
+  }
+
+  handle.addEventListener('pointerdown', () => { dragging = true; });
+  window.addEventListener('pointerup', () => { dragging = false; });
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    setSplit(posFromEvent(e));
+  });
+  wrap.addEventListener('click', (e) => {
+    if (e.target.closest('.handle-grip')) return;
+    setSplit(posFromEvent(e));
+  });
+}
+
+function renderLegend() {
+  const el = document.getElementById('legend-row');
+  el.innerHTML = CATS.map(c => `<span class="legend-item"><span class="legend-swatch" style="background:${c.color}"></span>${c.label}</span>`).join('')
+    + `<span class="legend-item"><span class="legend-swatch" style="background:#1a2233"></span>Товар</span>`;
+}
+
+function main() {
+  document.getElementById('status').style.display = 'none';
+  document.getElementById('compare-wrap').style.display = '';
+
+  const yMax = Math.max(stackMax(OLD_DATA), stackMax(NEW_DATA)) * 1.05;
+  renderStack('chart-old', OLD_DATA, `БГ производство по източници — ${OLD_DATE}`, yMax);
+  renderStack('chart-new', NEW_DATA, `БГ производство по източници — ${NEW_DATE}`, yMax);
+  renderLegend();
+  setupDrag();
+
+  const oldT = dayTotals(OLD_DATA);
+  const newT = dayTotals(NEW_DATA);
+  document.getElementById('kv-old-demand').textContent = oldT.demandGwh.toFixed(1) + ' GWh';
+  document.getElementById('kv-old-export').textContent = oldT.exportGwh.toFixed(1) + ' GWh';
+  document.getElementById('kv-old-coal').textContent = oldT.coalGwh.toFixed(1) + ' GWh (' + oldT.coalPct.toFixed(0) + '%)';
+  document.getElementById('kv-new-demand').textContent = newT.demandGwh.toFixed(1) + ' GWh';
+  document.getElementById('kv-new-export').textContent = newT.exportGwh.toFixed(1) + ' GWh';
+  document.getElementById('kv-new-coal').textContent = newT.coalGwh.toFixed(1) + ' GWh (' + newT.coalPct.toFixed(0) + '%)';
+}
+
+main();
+</script>
+</body>
+</html>
