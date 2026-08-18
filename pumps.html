@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Помпи по централи — Чаира, Белмекен, Орфей</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="i18n.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: #eef3f8; color: #1a2233; font-size: 14px; }
+
+header {
+  background: linear-gradient(180deg, #004494 0%, #003070 100%);
+  color: #fff;
+  border-bottom: 3px solid #ffd700;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1rem; font-weight: 700; }
+header a  { color: rgba(255,255,255,0.72); font-size: 0.78rem; text-decoration: none; }
+header a:hover { color: #fff; }
+
+.page { max-width: 1120px; margin: 0 auto; padding: 16px; }
+
+.panel {
+  background: #fff;
+  border: 1px solid #c5d8ee;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.panel-header {
+  background: #e8f0fa;
+  border-bottom: 1px solid #c5d8ee;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #003070;
+  display: flex; align-items: center; gap: 8px; justify-content: space-between;
+}
+.panel-body { padding: 14px 16px; }
+
+.info-btn { background:none;border:1px solid #7a9bc4;color:#5a7090;border-radius:50%;width:16px;height:16px;font-size:0.65rem;font-weight:700;cursor:pointer;line-height:1;padding:0;flex-shrink:0; }
+.info-btn:hover { background:#e8f0fa; }
+.info-dropdown { display:none;font-size:0.72rem;color:#4a5a7a;background:#eef3fb;border-top:1px solid #c5d8ee;padding:10px 16px;line-height:1.6; }
+.info-dropdown.open { display:block; }
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 700px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+
+.kpi {
+  border-radius: 5px;
+  padding: 11px 14px;
+  border: 1px solid;
+}
+.kpi.chaira   { background: #e9f6fe; border-color: #b3e0f8; }
+.kpi.belmeken { background: #efeefb; border-color: #c9c6ee; }
+.kpi.orfei    { background: #fef6e9; border-color: #f0d9a0; }
+.kpi.total    { background: #f5f5f5; border-color: #d0d0d0; }
+.kpi-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; color: #6a7a90; margin-bottom: 4px; }
+.kpi-val   { font-size: 1.25rem; font-weight: 700; line-height: 1.1; }
+.kpi.chaira   .kpi-val { color: #147ab8; }
+.kpi.belmeken .kpi-val { color: #544fc5; }
+.kpi.orfei    .kpi-val { color: #c98a1a; }
+.kpi.total    .kpi-val { color: #444; }
+.kpi-sub { font-size: 0.71rem; color: #5a6a80; margin-top: 4px; }
+
+.day-picker { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
+.day-picker select, .day-picker input {
+  font-size: 0.78rem; padding: 3px 6px; border: 1px solid #c5d8ee; border-radius: 4px;
+}
+
+table.daily-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+table.daily-table th, table.daily-table td { padding: 5px 8px; text-align: right; border-bottom: 1px solid #eef3f8; }
+table.daily-table th:first-child, table.daily-table td:first-child { text-align: left; }
+table.daily-table th { color: #5a6a80; font-weight: 700; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; }
+table.daily-table tbody tr:hover { background: #f7fafd; }
+.table-wrap { max-height: 420px; overflow-y: auto; overflow-x: auto; }
+
+.note {
+  font-size: 0.7rem;
+  color: #6a7a90;
+  margin-top: 10px;
+  line-height: 1.65;
+  border-top: 1px solid #e8f0fa;
+  padding-top: 8px;
+}
+#status, #status-profile { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💧 Помпи по централи — Чаира, Белмекен, Орфей</h1>
+  <a href="index.html">← Табло</a>
+  <a href="charging.html">Зареждане (ССЕЕ + помпи)</a>
+  <span id="lang-flags" style="margin-left:10px;"></span>
+</header>
+
+<div class="page">
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Дневна енергия за зареждане по централи, последните 35 дни</span>
+      <button class="info-btn" onclick="event.stopPropagation(); document.getElementById('stations-info').classList.toggle('open')" title="Информация">?</button>
+    </div>
+    <div class="panel-body">
+
+      <div class="kpi-row" id="kpi-row" style="display:none">
+        <div class="kpi chaira">
+          <div class="kpi-label">Чаира — средно на ден</div>
+          <div class="kpi-val" id="kv-chaira">—</div>
+          <div class="kpi-sub" id="ks-chaira"></div>
+        </div>
+        <div class="kpi belmeken">
+          <div class="kpi-label">Белмекен — средно на ден</div>
+          <div class="kpi-val" id="kv-belmeken">—</div>
+          <div class="kpi-sub" id="ks-belmeken"></div>
+        </div>
+        <div class="kpi orfei">
+          <div class="kpi-label">Орфей — средно на ден</div>
+          <div class="kpi-val" id="kv-orfei">—</div>
+          <div class="kpi-sub" id="ks-orfei"></div>
+        </div>
+        <div class="kpi total">
+          <div class="kpi-label">Общо — средно на ден</div>
+          <div class="kpi-val" id="kv-total">—</div>
+          <div class="kpi-sub" id="ks-total"></div>
+        </div>
+      </div>
+
+      <div id="status">Зареждане…</div>
+      <div id="chart-daily"></div>
+    </div>
+    <div id="stations-info" class="info-dropdown">
+      <b>Как е определена централата:</b> ЕСО отчита само сумарна мощност на помпите ("Помпи"), без да казва коя централа зарежда. Разпознаването е по стойността: всяка централа/агрегат работи на почти фиксирана мощност (изследвано от историческите данни, съпоставено с публичните технически параметри на НЕК) — Чаира ~188 MW на агрегат (4 бр., 788 MW общо в помпен режим), Белмекен ~53 MW на агрегат (2 бр., 104 MW общо), Орфей ~40 MW (1 обратим агрегат от 4, 47 MW номинално). За всяко 5-минутно отчитане алгоритъмът намира комбинацията брой-работещи-агрегати, чиято сума е най-близо до отчетената обща мощност.<br><b>Граница на шума:</b> стойности под 15 MW се третират като 0 (изключени помпи).</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Денонощен профил по централи</span>
+      <div class="day-picker">
+        <label for="day-select">Ден:</label>
+        <select id="day-select"></select>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="status-profile">Зареждане…</div>
+      <div id="chart-profile"></div>
+      <div class="legend-row" id="legend-row" style="display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;font-size:0.72rem;color:#4a5a7a;"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">Дневна статистика (ГВтч)</div>
+    <div class="panel-body">
+      <div id="status-table">Зареждане…</div>
+      <div class="table-wrap">
+        <table class="daily-table" id="daily-table" style="display:none">
+          <thead>
+            <tr><th>Дата</th><th>Чаира</th><th>Белмекен</th><th>Орфей</th><th>Общо</th></tr>
+          </thead>
+          <tbody id="daily-table-body"></tbody>
+        </table>
+      </div>
+      <div class="note"><b>Данни:</b> ЕСО SCADA, 5-минутни снимки от 3 юни 2026 (пускане на помпите на ПАВЕЦ Чаира). Дневна енергия = сума от приписаната мощност на всяка централа × 5 мин. Дни с непълни данни (под 270 от 288 снимки) са пропуснати, освен днешния ден (маркиран с *), който е частичен и се допълва.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+const REMOTE_BASE = 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data';
+const BASE = location.hostname === 'localhost' ? '/eso-data/data' : REMOTE_BASE;
+
+const START_DATE = '2026-06-03';
+const MIN_SNAPSHOTS = 270;
+const INTERVAL_H = 5 / 60;
+const NOISE_FLOOR_MW = 15;
+
+// Empirically detected quantization levels (see stations-info note), cross-checked
+// against НЕК's published pump-mode ratings: Chaira 788 MW / 4 units, Belmeken
+// 104 MW / 2 units, Orfei 47 MW / 1 reversible unit.
+const STATIONS = [
+  { key: 'chaira',   label: 'Чаира',    mw: 188, maxUnits: 4, color: '#2caffe' },
+  { key: 'belmeken', label: 'Белмекен', mw: 53,  maxUnits: 2, color: '#544fc5' },
+  { key: 'orfei',    label: 'Орфей',    mw: 40,  maxUnits: 1, color: '#f0a500' },
+];
+
+function decomposePumps(totalMw) {
+  const out = { chaira: 0, belmeken: 0, orfei: 0 };
+  if (!totalMw || totalMw < NOISE_FLOOR_MW) return out;
+  let bestDiff = Infinity, best = out;
+  for (let c = 0; c <= 4; c++) {
+    for (let b = 0; b <= 2; b++) {
+      for (let o = 0; o <= 1; o++) {
+        const sum = c * 188 + b * 53 + o * 40;
+        const diff = Math.abs(sum - totalMw);
+        if (diff < bestDiff) { bestDiff = diff; best = { chaira: c, belmeken: b, orfei: o }; }
+      }
+    }
+  }
+  return best;
+}
+
+async function getText(url) {
+  let r = await fetch(url).catch(() => null);
+  if ((!r || !r.ok) && BASE !== REMOTE_BASE && url.startsWith(BASE)) {
+    r = await fetch(REMOTE_BASE + url.slice(BASE.length)).catch(() => null);
+  }
+  if (!r || !r.ok) return null;
+  return r.text();
+}
+
+function todayBG() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Sofia' }).format(new Date());
+}
+
+function isWeekend(dateStr) {
+  const day = new Date(dateStr + 'T00:00:00Z').getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function parseDayRecords(txt) {
+  const lines = txt.trim().split('\n');
+  const out = [];
+  for (const line of lines) {
+    let r;
+    try { r = JSON.parse(line); } catch (_) { continue; }
+    out.push(r);
+  }
+  return out;
+}
+
+async function loadDaySummary(date, today) {
+  const txt = await getText(`${BASE}/${date}.jsonl`);
+  if (txt == null) return null;
+  const recs = parseDayRecords(txt);
+  const n = recs.length;
+  if (n < MIN_SNAPSHOTS && date !== today) return null;
+
+  const gwh = { chaira: 0, belmeken: 0, orfei: 0 };
+  for (const r of recs) {
+    const units = decomposePumps(r.pumps_mw || 0);
+    for (const s of STATIONS) {
+      gwh[s.key] += units[s.key] * s.mw * INTERVAL_H;
+    }
+  }
+  for (const k of Object.keys(gwh)) gwh[k] /= 1000;
+  return { date, ...gwh, partial: n < MIN_SNAPSHOTS };
+}
+
+function setKpis(days) {
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  for (const s of STATIONS) {
+    const vals = days.map(d => d[s.key]);
+    document.getElementById(`kv-${s.key}`).textContent = avg(vals).toFixed(2) + ' ГВтч';
+    document.getElementById(`ks-${s.key}`).textContent = 'макс ' + Math.max(...vals).toFixed(2) + ' ГВтч';
+  }
+  const totals = days.map(d => d.chaira + d.belmeken + d.orfei);
+  document.getElementById('kv-total').textContent = avg(totals).toFixed(2) + ' ГВтч';
+  document.getElementById('ks-total').textContent = 'макс ' + Math.max(...totals).toFixed(2) + ' ГВтч';
+  document.getElementById('kpi-row').style.display = '';
+}
+
+function renderDaily(days) {
+  const x = days.map(d => d.date + (d.partial ? ' *' : ''));
+  const traces = STATIONS.map(s => ({
+    x, y: days.map(d => +d[s.key].toFixed(3)),
+    name: s.label, type: 'bar',
+    marker: { color: s.color, line: { color: '#fff', width: 1 } },
+    hovertemplate: `%{x}<br>${s.label}: %{y:.2f} ГВтч<extra></extra>`,
+  }));
+
+  const weekendShapes = days
+    .map((d, i) => ({ i, wknd: isWeekend(d.date) }))
+    .filter(d => d.wknd)
+    .map(d => ({
+      type: 'rect', xref: 'x', yref: 'paper',
+      x0: d.i - 0.5, x1: d.i + 0.5, y0: 0, y1: 1,
+      fillcolor: '#f0a500', opacity: 0.10, line: { width: 0 },
+      layer: 'below',
+    }));
+
+  Plotly.newPlot('chart-daily', traces, {
+    barmode: 'stack',
+    bargap: 0.22,
+    dragmode: false,
+    height: 420,
+    margin: { t: 30, r: 16, b: 64, l: 56 },
+    xaxis: { type: 'category', tickangle: -55, tickfont: { size: 10 }, showgrid: false },
+    yaxis: {
+      title: { text: 'ГВтч/ден', font: { size: 12, color: '#5a6a80' } },
+      tickfont: { size: 11 },
+      gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
+    },
+    shapes: weekendShapes,
+    legend: { orientation: 'h', y: -0.28, x: 0.5, xanchor: 'center', font: { size: 11 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    hovermode: 'closest',
+  }, { responsive: true, displayModeBar: false });
+}
+
+function renderDailyTable(days) {
+  const tbody = document.getElementById('daily-table-body');
+  const rows = [...days].reverse().map(d => {
+    const total = d.chaira + d.belmeken + d.orfei;
+    return `<tr><td>${d.date}${d.partial ? ' *' : ''}</td>` +
+      `<td>${d.chaira.toFixed(2)}</td>` +
+      `<td>${d.belmeken.toFixed(2)}</td>` +
+      `<td>${d.orfei.toFixed(2)}</td>` +
+      `<td><b>${total.toFixed(2)}</b></td></tr>`;
+  });
+  tbody.innerHTML = rows.join('');
+  document.getElementById('status-table').style.display = 'none';
+  document.getElementById('daily-table').style.display = '';
+}
+
+function renderProfile(recs, dateStr) {
+  const x = recs.map(r => {
+    const t = new Date(r.timestamp_utc);
+    return new Intl.DateTimeFormat('bg-BG', { timeZone: 'Europe/Sofia', hour: '2-digit', minute: '2-digit', hour12: false }).format(t);
+  });
+  const decomposed = recs.map(r => decomposePumps(r.pumps_mw || 0));
+  const traces = STATIONS.map(s => ({
+    x, y: decomposed.map(u => u[s.key] * s.mw),
+    name: s.label, type: 'scatter', mode: 'lines',
+    stackgroup: 'pumps', fillcolor: s.color + 'cc', line: { color: s.color, width: 0.5 },
+    hovertemplate: `${s.label}: %{y} MW<extra></extra>`,
+  }));
+
+  Plotly.newPlot('chart-profile', traces, {
+    height: 380,
+    margin: { t: 16, r: 16, b: 40, l: 52 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
+    yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', rangemode: 'tozero' },
+    showlegend: false,
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
+  }, { responsive: true, displayModeBar: false });
+
+  const legend = document.getElementById('legend-row');
+  legend.innerHTML = STATIONS.map(s =>
+    `<span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:${s.color};display:inline-block;"></span>${s.label}</span>`
+  ).join('');
+}
+
+async function loadAndRenderProfile(date, today) {
+  const statusEl = document.getElementById('status-profile');
+  statusEl.style.display = '';
+  statusEl.textContent = 'Зареждане…';
+  document.getElementById('chart-profile').innerHTML = '';
+  const txt = await getText(`${BASE}/${date}.jsonl`);
+  if (txt == null) {
+    statusEl.textContent = 'Няма данни за този ден.';
+    return;
+  }
+  const recs = parseDayRecords(txt).filter(r => r.timestamp_utc);
+  if (!recs.length) {
+    statusEl.textContent = 'Няма данни за този ден.';
+    return;
+  }
+  statusEl.style.display = 'none';
+  renderProfile(recs, date);
+}
+
+async function main() {
+  const statusEl = document.getElementById('status');
+  try {
+    const today = todayBG();
+    const idx = JSON.parse(await getText(`${BASE}/index.json`));
+    const dates = idx.dates.filter(d => d >= START_DATE);
+    if (!dates.includes(today)) dates.push(today);
+
+    const results = await Promise.all(dates.map(d => loadDaySummary(d, today)));
+    const days = results.filter(Boolean).slice(-35);
+    if (!days.length) throw new Error('no data');
+    statusEl.style.display = 'none';
+    setKpis(days.filter(d => !d.partial));
+    renderDaily(days);
+    renderDailyTable(days);
+
+    // Day picker for the profile chart: same date range, newest first.
+    const daySelect = document.getElementById('day-select');
+    daySelect.innerHTML = [...days].reverse().map(d =>
+      `<option value="${d.date}">${d.date}${d.date === today ? ' (днес)' : ''}</option>`
+    ).join('');
+    daySelect.value = today;
+    daySelect.addEventListener('change', () => loadAndRenderProfile(daySelect.value, today));
+    await loadAndRenderProfile(today, today);
+  } catch (e) {
+    statusEl.textContent = 'Грешка при зареждане на данните: ' + e.message;
+  }
+}
+
+main();
+</script>
+</body>
+</html>
