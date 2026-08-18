@@ -111,6 +111,14 @@
     [' за 3 год.', ' over 3 yrs'],
     ['TWh/год.', 'TWh/yr'],
 
+    // ═══ pumps.html (long entries first -- they overlap with shorter charging.html
+    // entries below, e.g. both start with "ЕСО SCADA, 5-минутни снимки..."; SUB
+    // matches in array order, so the longer/more specific string must win first) ═══
+    [' ЕСО отчита само сумарна мощност на помпите ("Помпи"), без да казва коя централа зарежда. Разпознаването е по стойността: всяка централа/агрегат работи на почти фиксирана мощност (изследвано от историческите данни, съпоставено с публичните технически параметри на НЕК) — Чаира ~188 MW на агрегат (4 бр., 788 MW общо в помпен режим), Белмекен ~53 MW на агрегат (2 бр., 104 MW общо), Орфей ~40 MW (1 обратим агрегат от 4, 47 MW номинално). За всяко 5-минутно отчитане алгоритъмът намира комбинацията брой-работещи-агрегати, чиято сума е най-близо до отчетената обща мощност.',
+     ' ESO only reports total pump power ("Помпи"), without saying which station is charging. Stations are identified by value: each station/unit runs at a nearly fixed power level (derived from historical data, cross-checked against НЕК\'s published technical specs) — Chaira ~188 MW per unit (4 units, 788 MW total pump-mode capacity), Belmeken ~53 MW per unit (2 units, 104 MW total), Orfei ~40 MW (1 of its 4 units is reversible, 47 MW nameplate). For every 5-minute reading, the algorithm finds the combination of running units whose sum is closest to the reported total power.'],
+    [' ЕСО SCADA, 5-минутни снимки от 3 юни 2026 (пускане на помпите на ПАВЕЦ Чаира). Дневна енергия = сума от приписаната мощност на всяка централа × 5 мин. Дни с непълни данни (под 270 от 288 снимки) са пропуснати, освен днешния ден (маркиран с *), който е частичен и се допълва.',
+     ' ESO SCADA, 5-minute snapshots since 3 June 2026 (commissioning of the Chaira PSH pumps). Daily energy = sum of each station\'s attributed power × 5 min. Days with incomplete data (fewer than 270 of 288 snapshots) are skipped, except today (marked with *), which is partial and still filling in.'],
+
     // ═══ charging.html ═══
     ['Дневна енергия за зареждане, последните 35 дни — батерии (ССЕЕ) и помпи (ПАВЕЦ)',
      'Daily charging energy, last 35 days — batteries (BESS) and pumps (PSH)'],
@@ -145,6 +153,30 @@
     ['ГВтч/ден', 'GWh/day'],
     [' ГВтч', ' GWh'],
     ['макс ', 'max '],
+
+    // ═══ pumps.html ═══
+    ['💧 Помпи по централи — Чаира, Белмекен, Орфей', '💧 Pumps by station — Chaira, Belmeken, Orfei'],
+    ['Помпи по централи — Чаира, Белмекен, Орфей', 'Pumps by station — Chaira, Belmeken, Orfei'],
+    ['💧 Помпи по централи — Чаира/Белмекен/Орфей', '💧 Pumps by station — Chaira/Belmeken/Orfei'],
+    ['Зареждане (ССЕЕ + помпи)', 'Charging (BESS + pumps)'],
+    ['Дневна енергия за зареждане по централи, последните 35 дни',
+     'Daily charging energy by station, last 35 days'],
+    ['Чаира — средно на ден', 'Chaira — daily average'],
+    ['Белмекен — средно на ден', 'Belmeken — daily average'],
+    ['Орфей — средно на ден', 'Orfei — daily average'],
+    ['Денонощен профил по централи', '24h profile by station'],
+    ['Дневна статистика (ГВтч)', 'Daily statistics (GWh)'],
+    ['Чаира', 'Chaira'],
+    ['Белмекен', 'Belmeken'],
+    ['Орфей', 'Orfei'],
+    ['Общо', 'Total'],
+    ['Дата', 'Date'],
+    ['Ден:', 'Day:'],
+    [' (днес)', ' (today)'],
+    ['Как е определена централата:', 'How the station was identified:'],
+    ['Граница на шума:', 'Noise floor:'],
+    [' стойности под 15 MW се третират като 0 (изключени помпи).',
+     'values under 15 MW are treated as 0 (pumps off).'],
 
     // ═══ sdac_mc.html ═══
     ['SDAC — Пазарно обвързване БГ / Гърция / Румъния', 'SDAC — Market coupling BG / Greece / Romania'],
