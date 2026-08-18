@@ -74,10 +74,20 @@ header a:hover { color: #fff; }
 .kpi.total    .kpi-val { color: #444; }
 .kpi-sub { font-size: 0.71rem; color: #5a6a80; margin-top: 4px; }
 
-.day-picker { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; }
-.day-picker select, .day-picker input {
-  font-size: 0.78rem; padding: 3px 6px; border: 1px solid #c5d8ee; border-radius: 4px;
+.day-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.nav-btn {
+  padding: 4px 10px; background: #eef3fb;
+  border: 1px solid #c5d8ee; border-radius: 4px;
+  color: #003070; font-size: 0.78rem; cursor: pointer; transition: background 0.15s;
 }
+.nav-btn:hover:not(:disabled) { background: #dce8f7; }
+.nav-btn.active { background: #ffd700; border-color: #e0b800; color: #003070; font-weight: 700; }
+.nav-btn:disabled { opacity: 0.35; cursor: default; }
+input[type="date"]#date-picker {
+  padding: 4px 8px; border-radius: 4px; border: 1px solid #c5d8ee;
+  background: #fff; color: #1a2233; font-size: 0.78rem; cursor: pointer;
+}
+input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
 
 table.daily-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
 table.daily-table th, table.daily-table td { padding: 5px 8px; text-align: right; border-bottom: 1px solid #eef3f8; }
@@ -107,6 +117,23 @@ table.daily-table tbody tr:hover { background: #f7fafd; }
 </header>
 
 <div class="page">
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Денонощен профил по централи</span>
+      <div class="day-nav">
+        <button class="nav-btn" id="prev-btn" onclick="shiftDay(-1)">&#8592;</button>
+        <input type="date" id="date-picker" onchange="pickDate(this.value)">
+        <button class="nav-btn active" id="today-btn" onclick="goToday()">Днес</button>
+        <button class="nav-btn" id="next-btn" onclick="shiftDay(1)" disabled>&#8594;</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div id="status-profile">Зареждане…</div>
+      <div id="chart-profile"></div>
+      <div class="legend-row" id="legend-row" style="display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;font-size:0.72rem;color:#4a5a7a;"></div>
+    </div>
+  </div>
 
   <div class="panel">
     <div class="panel-header">
@@ -143,21 +170,6 @@ table.daily-table tbody tr:hover { background: #f7fafd; }
     </div>
     <div id="stations-info" class="info-dropdown">
       <b>Как е определена централата:</b> ЕСО отчита само сумарна мощност на помпите ("Помпи"), без да казва коя централа зарежда. Разпознаването е по стойността: всяка централа/агрегат работи на почти фиксирана мощност (изследвано от историческите данни, съпоставено с публичните технически параметри на НЕК) — Чаира ~188 MW на агрегат (4 бр., 788 MW общо в помпен режим), Белмекен ~53 MW на агрегат (2 бр., 104 MW общо), Орфей ~40 MW (1 обратим агрегат от 4, 47 MW номинално). За всяко 5-минутно отчитане алгоритъмът намира комбинацията брой-работещи-агрегати, чиято сума е най-близо до отчетената обща мощност.<br><b>Граница на шума:</b> стойности под 15 MW се третират като 0 (изключени помпи).</div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-header">
-      <span>Денонощен профил по централи</span>
-      <div class="day-picker">
-        <label for="day-select">Ден:</label>
-        <select id="day-select"></select>
-      </div>
-    </div>
-    <div class="panel-body">
-      <div id="status-profile">Зареждане…</div>
-      <div id="chart-profile"></div>
-      <div class="legend-row" id="legend-row" style="display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:10px;font-size:0.72rem;color:#4a5a7a;"></div>
-    </div>
   </div>
 
   <div class="panel">
@@ -198,20 +210,100 @@ const STATIONS = [
   { key: 'orfei',    label: 'Орфей',    mw: 40,  maxUnits: 1, color: '#f0a500' },
 ];
 
-function decomposePumps(totalMw) {
+// Belmeken (53 MW) and Orfei (40 MW) sit close enough that a noisy reading
+// can land almost equidistant between two combos (e.g. 423.5 MW is ~5.5 MW
+// from 2xChaira+1xBelmeken and ~7.5 MW from 2xChaira+1xOrfei) -- a plain
+// nearest-match flips for a single tick and flips back. HYSTERESIS_MW keeps
+// the previous combo unless a candidate beats it by more than this margin,
+// so single-tick noise no longer switches the attributed station.
+const HYSTERESIS_MW = 6;
+
+function decomposePumps(totalMw, prev) {
   const out = { chaira: 0, belmeken: 0, orfei: 0 };
   if (!totalMw || totalMw < NOISE_FLOOR_MW) return out;
   let bestDiff = Infinity, best = out;
+  const candidates = [];
   for (let c = 0; c <= 4; c++) {
     for (let b = 0; b <= 2; b++) {
       for (let o = 0; o <= 1; o++) {
         const sum = c * 188 + b * 53 + o * 40;
         const diff = Math.abs(sum - totalMw);
+        candidates.push({ combo: { chaira: c, belmeken: b, orfei: o }, diff });
         if (diff < bestDiff) { bestDiff = diff; best = { chaira: c, belmeken: b, orfei: o }; }
       }
     }
   }
+  if (prev) {
+    const prevSum = prev.chaira * 188 + prev.belmeken * 53 + prev.orfei * 40;
+    const prevDiff = Math.abs(prevSum - totalMw);
+    if (prevDiff <= bestDiff + HYSTERESIS_MW) return prev;
+  }
   return best;
+}
+
+function comboEq(a, b) {
+  return a.chaira === b.chaira && a.belmeken === b.belmeken && a.orfei === b.orfei;
+}
+// The one station key that differs between two combos, or null if they're
+// equal or differ in more than one station (not a single ramp event).
+function singleDiffKey(a, b) {
+  const keys = ['chaira', 'belmeken', 'orfei'].filter(k => a[k] !== b[k]);
+  return keys.length === 1 ? keys[0] : null;
+}
+
+// A unit spinning up/down passes through intermediate power levels for one
+// (rarely two) 5-min ticks -- e.g. Chaira ramping from off to its ~188 MW
+// plateau reads ~25 MW for a tick, which nearest-combo-match misreads as
+// "Orfei" (its ~40 MW level is the closest single-station combo to 25).
+// Fix: only treat a combo as real once it's stable for >=2 consecutive
+// ticks; an isolated tick that matches neither its stable predecessor nor
+// a stable state within the next few ticks is a ramp -- attribute its
+// *actual* measured power to whichever single station differs between the
+// two stable states (the one actually starting/stopping), not to whatever
+// combo happens to be numerically closest.
+const RAMP_LOOKAHEAD = 3;
+
+function decomposeSeries(recs) {
+  const raw = recs.map(r => r.pumps_mw || 0);
+  const n = raw.length;
+  const naive = raw.map(v => decomposePumps(v, null));
+  const stable = naive.map((c, i) => {
+    const prevSame = i > 0 && comboEq(c, naive[i - 1]);
+    const nextSame = i < n - 1 && comboEq(c, naive[i + 1]);
+    return prevSame || nextSame;
+  });
+
+  const result = new Array(n);
+  let lastStable = { chaira: 0, belmeken: 0, orfei: 0 };
+  for (let i = 0; i < n; i++) {
+    if (!raw[i] || raw[i] < NOISE_FLOOR_MW) {
+      result[i] = { chaira: 0, belmeken: 0, orfei: 0 };
+      lastStable = result[i];
+      continue;
+    }
+    if (stable[i]) {
+      result[i] = naive[i];
+      lastStable = naive[i];
+      continue;
+    }
+    let nextStable = null;
+    for (let j = i + 1; j < Math.min(n, i + 1 + RAMP_LOOKAHEAD); j++) {
+      if (stable[j]) { nextStable = naive[j]; break; }
+    }
+    const target = nextStable || lastStable;
+    const rampKey = singleDiffKey(lastStable, target);
+    result[i] = { chaira: 0, belmeken: 0, orfei: 0, _rampMw: raw[i], _rampKey: rampKey };
+  }
+  return result;
+}
+
+// MW attributed to one station for a given tick's decomposition -- handles
+// both stable ticks (unit count x nameplate MW) and ramp ticks (the actual
+// measured power, assigned to the single station that's transitioning).
+function attributedMw(units, key) {
+  if (units._rampMw != null) return units._rampKey === key ? units._rampMw : 0;
+  const s = STATIONS.find(s => s.key === key);
+  return units[key] * s.mw;
 }
 
 async function getText(url) {
@@ -251,10 +343,10 @@ async function loadDaySummary(date, today) {
   if (n < MIN_SNAPSHOTS && date !== today) return null;
 
   const gwh = { chaira: 0, belmeken: 0, orfei: 0 };
-  for (const r of recs) {
-    const units = decomposePumps(r.pumps_mw || 0);
+  const decomposed = decomposeSeries(recs);
+  for (const units of decomposed) {
     for (const s of STATIONS) {
-      gwh[s.key] += units[s.key] * s.mw * INTERVAL_H;
+      gwh[s.key] += attributedMw(units, s.key) * INTERVAL_H;
     }
   }
   for (const k of Object.keys(gwh)) gwh[k] /= 1000;
@@ -332,9 +424,9 @@ function renderProfile(recs, dateStr) {
     const t = new Date(r.timestamp_utc);
     return new Intl.DateTimeFormat('bg-BG', { timeZone: 'Europe/Sofia', hour: '2-digit', minute: '2-digit', hour12: false }).format(t);
   });
-  const decomposed = recs.map(r => decomposePumps(r.pumps_mw || 0));
+  const decomposed = decomposeSeries(recs);
   const traces = STATIONS.map(s => ({
-    x, y: decomposed.map(u => u[s.key] * s.mw),
+    x, y: decomposed.map(u => attributedMw(u, s.key)),
     name: s.label, type: 'scatter', mode: 'lines',
     stackgroup: 'pumps', fillcolor: s.color + 'cc', line: { color: s.color, width: 0.5 },
     hovertemplate: `${s.label}: %{y} MW<extra></extra>`,
@@ -355,7 +447,7 @@ function renderProfile(recs, dateStr) {
   ).join('');
 }
 
-async function loadAndRenderProfile(date, today) {
+async function loadAndRenderProfile(date) {
   const statusEl = document.getElementById('status-profile');
   statusEl.style.display = '';
   statusEl.textContent = 'Зареждане…';
@@ -374,6 +466,69 @@ async function loadAndRenderProfile(date, today) {
   renderProfile(recs, date);
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  DAY NAV -- same prev/next/date-picker/today pattern as index.html, with the
+//  selected day preserved in the URL hash (#day=YYYY-MM-DD).
+// ══════════════════════════════════════════════════════════════════════════════
+let allDates = [];
+let currentDay = null; // null = today
+
+function readHashDay() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  return p.get('day');
+}
+function writeHashDay(day) {
+  const p = new URLSearchParams();
+  if (day) p.set('day', day);
+  const h = p.toString() ? '#' + p.toString() : '#';
+  history.replaceState(null, '', h);
+}
+
+function updateNav() {
+  const today = todayBG(), base = currentDay || today;
+  const idx = allDates.indexOf(base);
+  document.getElementById('prev-btn').disabled = idx <= 0;
+  document.getElementById('next-btn').disabled = idx >= allDates.length - 1 || currentDay === null;
+  document.getElementById('today-btn').classList.toggle('active', currentDay === null);
+
+  const picker = document.getElementById('date-picker');
+  if (allDates.length) { picker.min = allDates[0]; picker.max = allDates[allDates.length - 1]; }
+  picker.value = base;
+}
+
+function pickDate(v) {
+  if (!v) return;
+  const today = todayBG();
+  currentDay = v === today ? null : v;
+  writeHashDay(currentDay);
+  updateNav();
+  loadAndRenderProfile(currentDay || today);
+}
+function shiftDay(d) {
+  const today = todayBG();
+  const base = currentDay || today;
+  const idx = allDates.indexOf(base);
+  if (idx === -1) return;
+  const ni = Math.max(0, Math.min(allDates.length - 1, idx + d));
+  currentDay = allDates[ni] === today ? null : allDates[ni];
+  writeHashDay(currentDay);
+  updateNav();
+  loadAndRenderProfile(currentDay || today);
+}
+function goToday() {
+  currentDay = null;
+  writeHashDay(null);
+  updateNav();
+  loadAndRenderProfile(todayBG());
+}
+window.addEventListener('hashchange', () => {
+  const today = todayBG();
+  const day = readHashDay();
+  currentDay = (day && day !== today) ? day : null;
+  updateNav();
+  loadAndRenderProfile(currentDay || today);
+});
+
 async function main() {
   const statusEl = document.getElementById('status');
   try {
@@ -381,6 +536,7 @@ async function main() {
     const idx = JSON.parse(await getText(`${BASE}/index.json`));
     const dates = idx.dates.filter(d => d >= START_DATE);
     if (!dates.includes(today)) dates.push(today);
+    allDates = dates;
 
     const results = await Promise.all(dates.map(d => loadDaySummary(d, today)));
     const days = results.filter(Boolean).slice(-35);
@@ -390,14 +546,10 @@ async function main() {
     renderDaily(days);
     renderDailyTable(days);
 
-    // Day picker for the profile chart: same date range, newest first.
-    const daySelect = document.getElementById('day-select');
-    daySelect.innerHTML = [...days].reverse().map(d =>
-      `<option value="${d.date}">${d.date}${d.date === today ? ' (днес)' : ''}</option>`
-    ).join('');
-    daySelect.value = today;
-    daySelect.addEventListener('change', () => loadAndRenderProfile(daySelect.value, today));
-    await loadAndRenderProfile(today, today);
+    const hashDay = readHashDay();
+    currentDay = (hashDay && hashDay !== today && allDates.includes(hashDay)) ? hashDay : null;
+    updateNav();
+    await loadAndRenderProfile(currentDay || today);
   } catch (e) {
     statusEl.textContent = 'Грешка при зареждане на данните: ' + e.message;
   }
