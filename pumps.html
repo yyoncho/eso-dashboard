@@ -291,8 +291,23 @@ function decomposeSeries(recs) {
       if (stable[j]) { nextStable = naive[j]; break; }
     }
     const target = nextStable || lastStable;
+    if (comboEq(lastStable, target)) {
+      // Surrounding stable state is the same on both sides -- this tick is
+      // just measurement noise landing on a different nearest-combo, not a
+      // real transition. Attribute it to that (unchanged) running combo
+      // rather than dropping its power from every station for one tick.
+      result[i] = target;
+      continue;
+    }
     const rampKey = singleDiffKey(lastStable, target);
-    result[i] = { chaira: 0, belmeken: 0, orfei: 0, _rampMw: raw[i], _rampKey: rampKey };
+    if (rampKey) {
+      result[i] = { chaira: 0, belmeken: 0, orfei: 0, _rampMw: raw[i], _rampKey: rampKey };
+    } else {
+      // Ambiguous multi-station transition (rare) -- fall back to the prior
+      // stable state so the tick still shows continuous power somewhere
+      // instead of vanishing.
+      result[i] = lastStable;
+    }
   }
   return result;
 }
