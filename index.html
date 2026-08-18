@@ -402,7 +402,6 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
             </div>
             <div class="balance-item revenue">
               <div class="balance-label">Износ</div>
-              <div class="balance-val revenue" id="b-export-eur">—</div>
               <div class="stat-unit" id="b-export-mwh">—</div>
             </div>
             <div class="balance-item" style="grid-column:1/-1;">
@@ -1338,9 +1337,6 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
   impEl.textContent = fmtEur(impDisplay);
   impEl.className = 'balance-val ' + (impDisplay >= 0 ? 'revenue' : 'expense');
   document.getElementById('b-import-mwh').textContent = fmt0(impMwh)+' MWh внос'+(isFinite(avgImpPrice)?` @ ${fmt1(avgImpPrice)} EUR/MWh`:'');
-  const expEl = document.getElementById('b-export-eur');
-  expEl.textContent = fmtEur(expDisplay);
-  expEl.className = 'balance-val ' + (expDisplay >= 0 ? 'revenue' : 'expense');
   document.getElementById('b-export-mwh').textContent = fmt0(expMwh)+' MWh износ'+(isFinite(avgExpPrice)?` @ ${fmt1(avgExpPrice)} EUR/MWh`:'');
   const netEl = document.getElementById('b-net-eur');
   netEl.textContent = fmtEur(net);
