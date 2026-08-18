@@ -281,72 +281,67 @@ function singleDiffKey(a, b) {
   return keys.length === 1 ? keys[0] : null;
 }
 
-// A unit spinning up/down passes through intermediate power levels for one
-// (rarely two) 5-min ticks -- e.g. Chaira ramping from off to its ~188 MW
-// plateau reads ~25 MW for a tick, which nearest-combo-match misreads as
-// "Orfei" (its ~40 MW level is the closest single-station combo to 25).
-// Fix: only treat a combo as real once it's stable for >=2 consecutive
-// ticks; an isolated tick that matches neither its stable predecessor nor
-// a stable state within the next few ticks is a ramp -- attribute its
-// *actual* measured power to whichever single station differs between the
-// two stable states (the one actually starting/stopping), not to whatever
-// combo happens to be numerically closest.
+// How far ahead to look, from a transition tick, for the state that
+// actually settles (stays put for 2 consecutive ticks) -- used to resolve
+// what a boundary tick's ramp is really transitioning *to*.
 const RAMP_LOOKAHEAD = 3;
 
 function decomposeSeries(recs) {
   const raw = recs.map(r => r.pumps_mw || 0);
   const n = raw.length;
-  const naive = raw.map(v => decomposePumps(v, null));
-  const stable = naive.map((c, i) => {
-    const prevSame = i > 0 && comboEq(c, naive[i - 1]);
-    const nextSame = i < n - 1 && comboEq(c, naive[i + 1]);
-    return prevSame || nextSame;
-  });
+
+  // Primary state tracking: hysteresis-decompose sequentially, carrying the
+  // previous tick's combo forward as the reference for the next. This alone
+  // is what keeps a run of noisy-but-genuinely-unchanged readings (e.g. a
+  // string of values a few MW closer to a neighboring combo than to the
+  // truly running one) from being accepted as a real transition -- each
+  // candidate has to beat the *carried* state by more than HYSTERESIS_MW,
+  // not just agree with its immediate neighbor for 2 ticks.
+  const hyst = new Array(n);
+  let prev = { chaira: 0, belmeken: 0, orfei: 0 };
+  for (let i = 0; i < n; i++) {
+    prev = decomposePumps(raw[i], prev);
+    hyst[i] = prev;
+  }
+
+  // A unit spinning up/down passes through intermediate power levels for a
+  // tick or two -- hysteresis's own pick *right at* that boundary tick can
+  // still be numerically wrong (nearest-combo-matched to an unrelated
+  // station), but it reliably settles onto the correct new state within a
+  // couple of ticks. So: at a boundary, look ahead for the state that
+  // actually holds, and treat that as the real target of the transition.
+  function settledFrom(j) {
+    const end = Math.min(n - 1, j + RAMP_LOOKAHEAD);
+    for (let k = j; k < end; k++) {
+      if (comboEq(hyst[k], hyst[k + 1])) return hyst[k];
+    }
+    return hyst[end];
+  }
 
   const result = new Array(n);
-  let lastStable = { chaira: 0, belmeken: 0, orfei: 0 };
   for (let i = 0; i < n; i++) {
-    if (!raw[i] || raw[i] < NOISE_FLOOR_MW) {
-      result[i] = { chaira: 0, belmeken: 0, orfei: 0 };
-      lastStable = result[i];
+    const prevCombo = i > 0 ? hyst[i - 1] : { chaira: 0, belmeken: 0, orfei: 0 };
+    if (comboEq(hyst[i], prevCombo)) {
+      result[i] = hyst[i];
       continue;
     }
-    if (stable[i]) {
-      result[i] = naive[i];
-      lastStable = naive[i];
-      continue;
-    }
-    let nextStable = null;
-    for (let j = i + 1; j < Math.min(n, i + 1 + RAMP_LOOKAHEAD); j++) {
-      if (stable[j]) { nextStable = naive[j]; break; }
-    }
-    const target = nextStable || lastStable;
-    if (comboEq(lastStable, target)) {
-      // Surrounding stable state is the same on both sides -- this tick is
-      // just measurement noise landing on a different nearest-combo, not a
-      // real transition. Attribute it to that (unchanged) running combo
-      // rather than dropping its power from every station for one tick.
+    const target = settledFrom(i);
+    const rampKey = singleDiffKey(prevCombo, target);
+    if (!rampKey) {
+      // Ambiguous multi-station transition (rare) -- just use the settled
+      // target directly rather than attempting a remainder split.
       result[i] = target;
       continue;
     }
-    const rampKey = singleDiffKey(lastStable, target);
-    if (rampKey) {
-      // Only the ramping station's own contribution is uncertain -- every
-      // other station keeps target's (== lastStable's, since they differ in
-      // exactly one key) unit count, so a station that was already running
-      // steadily doesn't vanish for this one tick just because a *different*
-      // station is spinning up/down alongside it. The ramping station gets
-      // whatever power is left after subtracting the others' stable output.
-      const othersMw = STATIONS
-        .filter(s => s.key !== rampKey)
-        .reduce((sum, s) => sum + target[s.key] * s.mw, 0);
-      result[i] = { ...target, _rampKey: rampKey, _rampMw: Math.max(0, raw[i] - othersMw) };
-    } else {
-      // Ambiguous multi-station transition (rare) -- fall back to the prior
-      // stable state so the tick still shows continuous power somewhere
-      // instead of vanishing.
-      result[i] = lastStable;
-    }
+    // Only the ramping station's own contribution is uncertain -- every
+    // other station keeps target's (== prevCombo's, since they differ in
+    // exactly one key) unit count, so a station that was already running
+    // steadily doesn't vanish for this one tick just because a *different*
+    // station is spinning up/down alongside it.
+    const othersMw = STATIONS
+      .filter(s => s.key !== rampKey)
+      .reduce((sum, s) => sum + target[s.key] * s.mw, 0);
+    result[i] = { ...target, _rampKey: rampKey, _rampMw: Math.max(0, raw[i] - othersMw) };
   }
   return result;
 }
