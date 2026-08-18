@@ -174,6 +174,7 @@
     ['Ден:', 'Day:'],
     [' (днес)', ' (today)'],
     ['Как е определена централата:', 'How the station was identified:'],
+    ['Как е определена централата', 'How the station was identified'],
     ['Граница на шума:', 'Noise floor:'],
     [' стойности под 15 MW се третират като 0 (изключени помпи).',
      'values under 15 MW are treated as 0 (pumps off).'],
