@@ -1,0 +1,38 @@
+[
+  {
+    "id": "2026-08-18-batt-charge-frozen",
+    "date": "2026-08-18",
+    "field": "batt_charge_mw",
+    "source_label": "ССЕБ - зареждане",
+    "window_utc": {
+      "start": "2026-08-18T15:35:03Z",
+      "end": "2026-08-18T19:25:03Z"
+    },
+    "records_affected": 48,
+    "description": "ESO's own raw feed (verified via raw_gen_api) froze the battery-charging figure at a single value for 3h50m+, unchanging across every 5-min poll regardless of actual battery state (state flipped between charging/discharging normally throughout, discharge figure kept updating normally). Not a scraper/parsing bug -- ESO's page itself was stuck.",
+    "observed_stuck_value_mw": 191.7,
+    "corrected_value_mw": 0.0,
+    "correction_method": "Manual one-off fix: zeroed all records where batt_charge_mw exactly matched the frozen value while ССЕЕ_state=discharging. Original value preserved per-record under _raw_backup.batt_charge_mw, each fixed record flagged with _data_corrected=true and _correction_note.",
+    "status": "fixed_today_only",
+    "note": "An automatic poller-side detection patch (fetch.py) was written and deployed, then reverted at the user's request -- this is a manual, one-time fix for today's occurrence only, not an ongoing safeguard. If this recurs on a future day, it will need to be re-fixed by hand."
+  },
+  {
+    "id": "2026-08-18-solar-load-spike",
+    "date": "2026-08-18",
+    "fields": ["ФЕЦ", "Товар на РБ"],
+    "field_labels": {"ФЕЦ": "solar generation", "Товар на РБ": "total load"},
+    "window_utc": {
+      "start": "2026-08-18T14:55:03Z",
+      "end": "2026-08-18T17:15:03Z"
+    },
+    "records_affected": 29,
+    "description": "Solar failed to taper toward sunset (still 2689 MW at 20:15 Sofia local, vs ~140 MW the day before at the same local time) and load climbed to 6612 MW -- no day in this project's dataset has ever recorded BG demand above ~4600 MW. Both snapped back to normal simultaneously at 2026-08-18T17:20:03Z. Confirmed via raw_gen_api that ESO's own page reported these values.",
+    "observed_peak_mw": {
+      "ФЕЦ": 3510.53,
+      "Товар на РБ": 6611.65
+    },
+    "correction_method": "Scaled 2026-08-17's shape at the same times-of-day, blending the scale factor from 1.335x (matched to the last known-good ratio before the glitch) down to 1.0x at the 17:20 recovery point, for continuity at both boundaries. ENTSOE was considered and rejected as a correction source: solar has a documented phantom-solar timezone artifact for BG (see compare_eso_dashboard_entsoe.py), and load's ratio vs SCADA wasn't constant, plus ENTSOE had no data yet for the tail of the window. Original values preserved per-record under _raw_backup, each fixed record flagged with _data_corrected=true and _correction_note.",
+    "status": "fixed",
+    "note": "This glitch self-corrected on ESO's side at 17:20:03Z; the fix only needed to be applied once."
+  }
+]
