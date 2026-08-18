@@ -46,8 +46,27 @@ header a:hover { color: #fff; }
 
 .info-btn { background:none;border:1px solid #7a9bc4;color:#5a7090;border-radius:50%;width:16px;height:16px;font-size:0.65rem;font-weight:700;cursor:pointer;line-height:1;padding:0;flex-shrink:0; }
 .info-btn:hover { background:#e8f0fa; }
-.info-dropdown { display:none;font-size:0.72rem;color:#4a5a7a;background:#eef3fb;border-top:1px solid #c5d8ee;padding:10px 16px;line-height:1.6; }
-.info-dropdown.open { display:block; }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(20,30,50,0.45);
+  z-index: 500; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #fff; border-radius: 8px; max-width: 560px; width: 100%;
+  max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid #e8f0fa;
+  font-weight: 700; font-size: 0.85rem; color: #003070;
+}
+.modal-close {
+  background: none; border: none; color: #5a7090; font-size: 1.1rem;
+  cursor: pointer; line-height: 1; padding: 4px;
+}
+.modal-close:hover { color: #003070; }
+.modal-body { padding: 14px 16px; font-size: 0.78rem; color: #4a5a7a; line-height: 1.65; }
 
 .kpi-row {
   display: grid;
@@ -121,7 +140,7 @@ table.daily-table tbody tr:hover { background: #f7fafd; }
 
   <div class="panel">
     <div class="panel-header">
-      <span>Денонощен профил по централи</span>
+      <span>Денонощен профил по централи <button class="info-btn" onclick="openInfoModal()" title="Информация">?</button></span>
       <div class="day-nav">
         <button class="nav-btn" id="prev-btn" onclick="shiftDay(-1)">&#8592;</button>
         <input type="date" id="date-picker" onchange="pickDate(this.value)">
@@ -139,7 +158,7 @@ table.daily-table tbody tr:hover { background: #f7fafd; }
   <div class="panel">
     <div class="panel-header">
       <span>Дневна енергия за зареждане по централи, последните 35 дни</span>
-      <button class="info-btn" onclick="event.stopPropagation(); document.getElementById('stations-info').classList.toggle('open')" title="Информация">?</button>
+      <button class="info-btn" onclick="openInfoModal()" title="Информация">?</button>
     </div>
     <div class="panel-body">
 
@@ -169,8 +188,6 @@ table.daily-table tbody tr:hover { background: #f7fafd; }
       <div id="status">Зареждане…</div>
       <div id="chart-daily"></div>
     </div>
-    <div id="stations-info" class="info-dropdown">
-      <b>Как е определена централата:</b> ЕСО отчита само сумарна мощност на помпите ("Помпи"), без да казва коя централа зарежда. Разпознаването е по стойността: всяка централа/агрегат работи на почти фиксирана мощност (изследвано от историческите данни, съпоставено с публичните технически параметри на НЕК) — Чаира ~188 MW на агрегат (4 бр., 788 MW общо в помпен режим), Белмекен ~53 MW на агрегат (2 бр., 104 MW общо), Орфей ~40 MW (1 обратим агрегат от 4, 47 MW номинално). За всяко 5-минутно отчитане алгоритъмът намира комбинацията брой-работещи-агрегати, чиято сума е най-близо до отчетената обща мощност.<br><b>Граница на шума:</b> стойности под 15 MW се третират като 0 (изключени помпи).</div>
   </div>
 
   <div class="panel">
@@ -189,6 +206,18 @@ table.daily-table tbody tr:hover { background: #f7fafd; }
     </div>
   </div>
 
+</div>
+
+<div class="modal-overlay" id="info-modal" onclick="if (event.target === this) closeInfoModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>Как е определена централата</span>
+      <button class="modal-close" onclick="closeInfoModal()" title="Затвори">&times;</button>
+    </div>
+    <div class="modal-body">
+      <b>Как е определена централата:</b> ЕСО отчита само сумарна мощност на помпите ("Помпи"), без да казва коя централа зарежда. Разпознаването е по стойността: всяка централа/агрегат работи на почти фиксирана мощност (изследвано от историческите данни, съпоставено с публичните технически параметри на НЕК) — Чаира ~188 MW на агрегат (4 бр., 788 MW общо в помпен режим), Белмекен ~53 MW на агрегат (2 бр., 104 MW общо), Орфей ~40 MW (1 обратим агрегат от 4, 47 MW номинално). За всяко 5-минутно отчитане алгоритъмът намира комбинацията брой-работещи-агрегати, чиято сума е най-близо до отчетената обща мощност.<br><b>Граница на шума:</b> стойности под 15 MW се третират като 0 (изключени помпи).
+    </div>
+  </div>
 </div>
 
 <script>
@@ -230,6 +259,16 @@ function toggleStation(key) {
   applyStationVisibility();
   renderLegendRow();
 }
+
+function openInfoModal() {
+  document.getElementById('info-modal').classList.add('open');
+}
+function closeInfoModal() {
+  document.getElementById('info-modal').classList.remove('open');
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeInfoModal();
+});
 
 function renderLegendRow() {
   const legend = document.getElementById('legend-row');
