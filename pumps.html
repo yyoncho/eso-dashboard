@@ -211,6 +211,35 @@ const STATIONS = [
   { key: 'orfei',    label: 'Орфей',    mw: 40,  maxUnits: 1, color: '#f0a500' },
 ];
 
+// Shared show/hide state for the three stations, applied to both charts so
+// clicking either chart's legend (the clickable chip strip above the profile
+// chart, or Plotly's own native legend on the daily bar chart) keeps them
+// in sync.
+const hiddenStations = new Set();
+
+function applyStationVisibility() {
+  const vis = STATIONS.map(s => hiddenStations.has(s.key) ? 'legendonly' : true);
+  for (const id of ['chart-profile', 'chart-daily']) {
+    const el = document.getElementById(id);
+    if (el && el.data) Plotly.restyle(id, { visible: vis }).catch(() => {});
+  }
+}
+
+function toggleStation(key) {
+  if (hiddenStations.has(key)) hiddenStations.delete(key); else hiddenStations.add(key);
+  applyStationVisibility();
+  renderLegendRow();
+}
+
+function renderLegendRow() {
+  const legend = document.getElementById('legend-row');
+  legend.innerHTML = STATIONS.map(s => {
+    const hidden = hiddenStations.has(s.key);
+    return `<span onclick="toggleStation('${s.key}')" style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none;opacity:${hidden ? 0.4 : 1};text-decoration:${hidden ? 'line-through' : 'none'};">` +
+      `<span style="width:10px;height:10px;border-radius:2px;background:${s.color};display:inline-block;"></span>${s.label}</span>`;
+  }).join('');
+}
+
 // Belmeken (53 MW) and Orfei (40 MW) sit close enough that a noisy reading
 // can land almost equidistant between two combos (e.g. 423.5 MW is ~5.5 MW
 // from 2xChaira+1xBelmeken and ~7.5 MW from 2xChaira+1xOrfei) -- a plain
@@ -389,6 +418,7 @@ function renderDaily(days) {
     name: s.label, type: 'bar',
     marker: { color: s.color, line: { color: '#fff', width: 1 } },
     hovertemplate: `%{x}<br>${s.label}: %{y:.2f} ГВтч<extra></extra>`,
+    visible: hiddenStations.has(s.key) ? 'legendonly' : true,
   }));
 
   const weekendShapes = days
@@ -417,7 +447,22 @@ function renderDaily(days) {
     legend: { orientation: 'h', y: -0.28, x: 0.5, xanchor: 'center', font: { size: 11 } },
     plot_bgcolor: '#fff', paper_bgcolor: '#fff',
     hovermode: 'closest',
-  }, { responsive: true, displayModeBar: false });
+  }, { responsive: true, displayModeBar: false }).then(gd => {
+    // Plotly already toggles this chart's own trace on a native legend
+    // click; just fold that choice into the shared state so the profile
+    // chart and the clickable chip strip above it stay in sync too.
+    gd.on('plotly_legendclick', (ev) => {
+      const key = STATIONS[ev.curveNumber].key;
+      if (hiddenStations.has(key)) hiddenStations.delete(key); else hiddenStations.add(key);
+      const profileEl = document.getElementById('chart-profile');
+      if (profileEl && profileEl.data) {
+        const vis = STATIONS.map(s => hiddenStations.has(s.key) ? 'legendonly' : true);
+        Plotly.restyle('chart-profile', { visible: vis }).catch(() => {});
+      }
+      renderLegendRow();
+      return true;
+    });
+  });
 }
 
 function renderDailyTable(days) {
@@ -446,6 +491,7 @@ function renderProfile(recs, dateStr) {
     name: s.label, type: 'scatter', mode: 'lines',
     stackgroup: 'pumps', fillcolor: s.color + 'cc', line: { color: s.color, width: 0.5 },
     hovertemplate: `${s.label}: %{y} MW<extra></extra>`,
+    visible: hiddenStations.has(s.key) ? 'legendonly' : true,
   }));
 
   Plotly.react('chart-profile', traces, {
@@ -457,10 +503,7 @@ function renderProfile(recs, dateStr) {
     plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
   }, { responsive: true, displayModeBar: false });
 
-  const legend = document.getElementById('legend-row');
-  legend.innerHTML = STATIONS.map(s =>
-    `<span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:${s.color};display:inline-block;"></span>${s.label}</span>`
-  ).join('');
+  renderLegendRow();
 }
 
 async function loadAndRenderProfile(date) {
