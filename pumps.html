@@ -105,6 +105,7 @@ table.daily-table tbody tr:hover { background: #f7fafd; }
   padding-top: 8px;
 }
 #status, #status-profile { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+#chart-profile { min-height: 380px; }
 </style>
 </head>
 <body>
@@ -447,7 +448,7 @@ function renderProfile(recs, dateStr) {
     hovertemplate: `${s.label}: %{y} MW<extra></extra>`,
   }));
 
-  Plotly.newPlot('chart-profile', traces, {
+  Plotly.react('chart-profile', traces, {
     height: 380,
     margin: { t: 16, r: 16, b: 40, l: 52 },
     xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
@@ -463,18 +464,22 @@ function renderProfile(recs, dateStr) {
 }
 
 async function loadAndRenderProfile(date) {
+  // Deliberately don't clear #chart-profile or show the loading status here:
+  // clearing it collapses the div to 0 height (no fixed CSS height, only
+  // Plotly's inline height while a chart is present), which yanks the rest
+  // of the page up and back down on every day switch. Plotly.react() below
+  // replaces the previous chart's content directly, in place.
   const statusEl = document.getElementById('status-profile');
-  statusEl.style.display = '';
-  statusEl.textContent = 'Зареждане…';
-  document.getElementById('chart-profile').innerHTML = '';
   const txt = await getText(`${BASE}/${date}.jsonl`);
   if (txt == null) {
     statusEl.textContent = 'Няма данни за този ден.';
+    statusEl.style.display = '';
     return;
   }
   const recs = parseDayRecords(txt).filter(r => r.timestamp_utc);
   if (!recs.length) {
     statusEl.textContent = 'Няма данни за този ден.';
+    statusEl.style.display = '';
     return;
   }
   statusEl.style.display = 'none';
