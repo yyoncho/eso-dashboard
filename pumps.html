@@ -331,7 +331,16 @@ function decomposeSeries(recs) {
     }
     const rampKey = singleDiffKey(lastStable, target);
     if (rampKey) {
-      result[i] = { chaira: 0, belmeken: 0, orfei: 0, _rampMw: raw[i], _rampKey: rampKey };
+      // Only the ramping station's own contribution is uncertain -- every
+      // other station keeps target's (== lastStable's, since they differ in
+      // exactly one key) unit count, so a station that was already running
+      // steadily doesn't vanish for this one tick just because a *different*
+      // station is spinning up/down alongside it. The ramping station gets
+      // whatever power is left after subtracting the others' stable output.
+      const othersMw = STATIONS
+        .filter(s => s.key !== rampKey)
+        .reduce((sum, s) => sum + target[s.key] * s.mw, 0);
+      result[i] = { ...target, _rampKey: rampKey, _rampMw: Math.max(0, raw[i] - othersMw) };
     } else {
       // Ambiguous multi-station transition (rare) -- fall back to the prior
       // stable state so the tick still shows continuous power somewhere
@@ -343,11 +352,12 @@ function decomposeSeries(recs) {
 }
 
 // MW attributed to one station for a given tick's decomposition -- handles
-// both stable ticks (unit count x nameplate MW) and ramp ticks (the actual
-// measured power, assigned to the single station that's transitioning).
+// both stable ticks (unit count x nameplate MW) and ramp ticks (the ramping
+// station's share is its actual measured remainder; every other station
+// still uses its normal unit-count x nameplate MW, see decomposeSeries).
 function attributedMw(units, key) {
-  if (units._rampMw != null) return units._rampKey === key ? units._rampMw : 0;
   const s = STATIONS.find(s => s.key === key);
+  if (units._rampKey === key) return units._rampMw;
   return units[key] * s.mw;
 }
 
