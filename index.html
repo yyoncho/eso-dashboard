@@ -370,7 +370,9 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
         <div class="panel-header">
           <a href="#flows-live" class="anchor-link">Трансгранични потоци</a>
           <span id="flows-price-note" style="font-weight:400;font-size:0.68rem;opacity:0.8;"></span>
+          <button class="info-btn" onclick="document.getElementById('flows-info').classList.toggle('open')" title="Информация">?</button>
         </div>
+        <div id="flows-info" class="info-dropdown">Стойностите в EUR/h са <b>оценка</b>, не реален паричен поток: <b>износ</b> = поток(MW) × текуща IBEX DA цена за БГ; <b>внос</b> = −поток(MW) × същата цена. Цената на съседната страна (РО/ГР/РС/МК/ТР) не е използвана — при пазарно обвързване (market coupling) цените обичайно съвпадат, но при насищане на капацитета (congestion) те могат да се разминат и реалният приход/разход да е различен. Реален паричен поток зависи и от договорните условия на оператора, преносни такси и др. За реални цени по граница вижте <a href="sdac_mc.html">SDAC — Пазарно обвързване</a>.</div>
         <div class="panel-body" style="padding:6px 12px 10px;">
           <table class="flows-table">
             <thead>
