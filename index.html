@@ -282,7 +282,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
               <a href="nuclear_lcoe.html" style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">⚛ АЕЦ Козлодуй — LCOE калкулатор</a>
               <a href="trends.html"       style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">📈 Дългосрочни тенденции</a>
               <a href="charging.html"     style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">🔋 Дневно зареждане — ССЕЕ и помпи</a>
-              <a href="pumps.html"        style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">💧 Помпи по централи — Чаира/Белмекен/Орфей</a>
+              <a href="pumps.html"        style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">💧 Зареждане на помпи — Чаира/Белмекен/Орфей</a>
               <a href="sdac_mc.html"      style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">🔀 SDAC — Пазарно обвързване БГ/ГР/РО</a>
               <a href="grid_transition.html" style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">⚡ Тогава срещу сега — трансформацията на мрежата</a>
             </div>
@@ -513,6 +513,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
         <button class="fs-btn" onclick="toggleFullscreen('flows-profile','chart-flows-ts')" title="Цял екран">⛶</button>
       </div>
     </div>
+    <div id="flows-country-bar" style="display:none;padding:8px 12px;border-bottom:1px solid #c5d8ee;"></div>
     <div style="padding:6px 8px 10px;">
       <div id="chart-flows-ts" class="fs-chart" style="height:480px;"></div>
     </div>
@@ -764,6 +765,7 @@ function getDayPrices(pd, dateStr) {
   return pts;
 }
 
+
 // ══════════════════════════════════════════════════════════════════════════════
 //  AGGREGATION
 // ══════════════════════════════════════════════════════════════════════════════
@@ -900,6 +902,7 @@ function setEurMode(on) {
   if (window._lastBinned) {
     drawTimeline(window._lastBinned, window._lastPriceData, window._lastDateStr);
     updateTotalStats(window._lastBinned, window._lastPriceData, window._lastDateStr);
+    updateDayBalance(window._lastBinned, window._lastPriceData, window._lastDateStr);
   }
   writeHash(currentDay, null);
 }
@@ -907,6 +910,7 @@ function setFlowsEurMode(on) {
   flowsEurMode = on;
   document.getElementById('tog-flows-eur').classList.toggle('active', on);
   if (window._lastFlowsBinned) drawFlowsTimeline(window._lastFlowsBinned, window._lastFlowsPd);
+  if (window._lastBinned) updateDayBalance(window._lastBinned, window._lastPriceData, window._lastDateStr);
 }
 
 function setColMode(on) {
@@ -967,6 +971,7 @@ function updateTotalStats(binned, pd, dateStr) {
   totals['_batt'] = 0; mwhTotals['_batt'] = 0; eurTotals['_batt'] = 0;
   let battChgCost = 0, battChgMwh = 0;
   let pumpsChgCost = 0, pumpsChgMwh = 0;
+  let loadMwh = 0;
   for (const b of binned) {
     const mwhScale = (15/60) / 1000;
     const pr = priceByBin[b.ts] ?? NaN;
@@ -991,6 +996,8 @@ function updateTotalStats(binned, pd, dateStr) {
     totals['_batt'] += bd * scale;
     mwhTotals['_batt'] += bd * mwhScale;
     if (eurScale !== null) eurTotals['_batt'] += bd * eurScale;
+
+    loadMwh += Math.max(0, b['load_mw'] || 0) * mwhScale;
   }
   const unit = eurMode ? 'млн.€' : 'GWh';
   const dec  = eurMode ? 2 : 3;
@@ -1009,8 +1016,14 @@ function updateTotalStats(binned, pd, dateStr) {
   const keyItem = (color, label, key) => statItem(color, label, totals[key].toFixed(dec), unit, priceTag(key));
 
   const sources = (reMode ? GEN_SERIES.filter(s => RE_KEYS.has(s.key)) : GEN_SERIES)
-    .filter(s => !hiddenGenKeys.has(s.key))
-    .sort((a, b) => totals[b.key] - totals[a.key]);
+    .filter(s => !hiddenGenKeys.has(s.key));
+  // ССЕЕ discharge behaves like a generation source (it's a positive
+  // contribution to the mix), so it sorts alongside the real sources by
+  // value instead of always being pinned after them regardless of size.
+  if (!reMode && !hiddenGenKeys.has('_batt')) {
+    sources.push({ key: '_batt', label: 'ССЕЕ разр.', color: '#f59f00' });
+  }
+  sources.sort((a, b) => totals[b.key] - totals[a.key]);
   const battEurDis = eurTotals['_batt'];
   const battDelta  = battEurDis - battChgCost;
   const disMwh = mwhTotals['_batt'] * 1000, chgMwh = battChgMwh * 1000;
@@ -1044,9 +1057,15 @@ function updateTotalStats(binned, pd, dateStr) {
   }
 
   let html = '';
+  // Headline totals -- always in GWh regardless of the €/GWh toggle (a
+  // "total consumption revenue" figure wouldn't mean anything).
+  if (!reMode) {
+    const genTotalGwh = GEN_SERIES.reduce((s, k) => s + mwhTotals[k.key], 0) + mwhTotals['_batt'];
+    html += statItem('#004494', 'Общо производство', genTotalGwh.toFixed(1), 'GWh');
+    html += statItem('#8a3a00', 'Общо потребление',  loadMwh.toFixed(1),     'GWh');
+  }
   for (const s of sources) html += keyItem(s.color, s.label, s.key);
   if (!reMode && !hiddenGenKeys.has('_batt')) {
-    html += keyItem('#f59f00', 'ССЕЕ разр.', '_batt');
     if (eurMode) {
       const chgSub = battChgMwh > 0 ? `<div style="font-size:0.58rem;color:#8a9ab0;margin-top:1px;">@ ${(battChgCost*1e6/(battChgMwh*1000)).toFixed(0)} €/MWh</div>` : '';
       html += statItem('#8e24aa', 'ССЕЕ зар.', (-battChgCost).toFixed(dec), unit, chgSub);
@@ -1180,39 +1199,35 @@ function updateStatusCards(latest, pd) {
   const bSt  = battState(bMw);
   const pumpsNow  = latest['pumps_mw'] || 0;
 
-  const cards = [
-    { label: 'ФЕЦ',        color: '#fa4b42', v: latest['ФЕЦ']||0,
-      unit: 'MW' },
-    { label: 'АЕЦ',        color: '#2caffe', v: latest['АЕЦ']||0,
-      unit: 'MW' },
-    { label: 'ВЕЦ',        color: '#6b8abc', v: latest['ВЕЦ']||0,
-      unit: 'MW' },
-    { label: 'М.ВЕЦ',      color: '#d568fb', v: latest['Малки ВЕЦ']||0,
-      unit: 'MW' },
-    { label: 'ВяЕЦ',       color: '#2ee0ca', v: latest['ВяЕЦ']||0,
-      unit: 'MW' },
-    { label: 'ССЕЕ',       color: '#7b3fa0',
-      v: bSt==='charging' ? -Math.abs(bMw) : Math.abs(bMw),
-      unit: bSt==='charging' ? 'MW — зар.' : bSt==='discharging' ? 'MW — разр.' : 'MW' },
-  ];
-  if (pumpsNow > 0) cards.push({ label: 'Помпи зар.', color: '#0369a1', v: -pumpsNow, unit: 'MW' });
+  // Every generation source shown in the pie chart (GEN_SERIES), so no type
+  // is missing from the top card row.
+  const cards = GEN_SERIES.map(s => ({ label: s.label, color: s.color, v: latest[s.key]||0, unit: 'MW' }));
+
+  // ССЕЕ + pumps compounded into one storage card (both are the same
+  // "charge now, discharge/generate later" behavior) instead of two.
+  const battMw  = bSt==='charging' ? -Math.abs(bMw) : Math.abs(bMw);
+  const storageMw = battMw - pumpsNow;
+  cards.push({ label: 'ССЕЕ + Помпи', color: '#7b3fa0', v: storageMw,
+    unit: storageMw < 0 ? 'MW — зар.' : storageMw > 0 ? 'MW — разр.' : 'MW' });
 
   cards.sort((a, b) => b.v - a.v);
 
   document.getElementById('s-dyn').innerHTML = cards.map(c => `
     <div class="stat-card" style="border-top-color:${c.color};${c.dim ? 'opacity:0.4;' : ''}">
       <div class="stat-label">${c.label}</div>
-      <div class="stat-val">${fmt0(c.v)}</div>
+      <div class="stat-val">${c._raw ? fmtEur(c.v) : fmt0(c.v)}</div>
       <div class="stat-unit">${c.unit}</div>
     </div>`).join('');
 }
 
 function updateFlowsTable(latest, pd) {
   if (!latest) return;
-  const price  = getPriceAt(pd, toUtcMs(latest));
+  const tsMs   = toUtcMs(latest);
+  const price  = getPriceAt(pd, tsMs);
   const maxAbs = Math.max(1, ...FLOW_CFG.map(f=>Math.abs(latest[f.key]||0)));
   const noteEl = document.getElementById('flows-price-note');
   if (noteEl) noteEl.textContent = isFinite(price)?`@ ${price.toFixed(1)} €/MWh IBEX`:'';
+
 
   const tbody = document.getElementById('flows-tbody');
   tbody.innerHTML = '';
@@ -1221,7 +1236,6 @@ function updateFlowsTable(latest, pd) {
     const mw = latest[f.key]||0, isImp = mw>0;
     const pct = Math.min(100,(Math.abs(mw)/maxAbs)*48);
     const eurVal = isFinite(price) ? (isImp ? -1 : 1) * Math.abs(mw) * price : NaN;
-    // Beneficial = earning money: import at neg price OR export at pos price
     const beneficial = isFinite(price) ? (isImp === negPrice) : !isImp;
     const mwClass  = beneficial ? 'export-val' : 'import-val';
     const eurColor = isFinite(eurVal) ? (eurVal >= 0 ? '#1a8a1a' : '#cc2200') : '#666';
@@ -1233,7 +1247,7 @@ function updateFlowsTable(latest, pd) {
         <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:#ccc;"></div>
         <div class="flow-bar ${isImp?'import':'export'}" style="width:${pct}%;"></div>
       </div></td>
-      <td style="text-align:right;font-size:0.75rem;color:${eurColor};" title="Оценка на база IBEX DA цена — не е реална сетълмент стойност">${isFinite(eurVal)?fmtEur(eurVal)+'/h ~':'—'}</td>`;
+      <td style="text-align:right;font-size:0.75rem;color:${eurColor};" title="Оценка на база IBEX DA цена">${isFinite(eurVal)?fmtEur(eurVal)+'/h ~':'—'}</td>`;
     tbody.appendChild(tr);
   }
 
@@ -1253,7 +1267,7 @@ function updateFlowsTable(latest, pd) {
       <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:#999;"></div>
       <div class="flow-bar ${isNetImp?'import':'export'}" style="width:${Math.min(48,(Math.abs(netMw)/maxAbs)*48)}%;"></div>
     </div></td>
-    <td style="text-align:right;font-size:0.75rem;color:${netEurColor};" title="Оценка на база IBEX DA цена — не е реална сетълмент стойност">${isFinite(netEurVal)?fmtEur(netEurVal)+'/h ~':'—'}</td>`;
+    <td style="text-align:right;font-size:0.75rem;color:${netEurColor};">${isFinite(netEurVal)?fmtEur(netEurVal)+'/h ~':'—'}</td>`;
   tbody.appendChild(netTr);
 }
 
@@ -1292,6 +1306,7 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
 
   let impMwh=0, expMwh=0, impEur=0, expEur=0, pSum=0, pN=0, pMin=Infinity, pMax=-Infinity;
   let battChgMwh=0, battDisMwh=0, pumpsChgMwh=0, pumpsChgEur=0;
+  let genMwh=0, loadMwh=0;
   for (const b of binned) {
     const mw = b['net_import_mw']; if (!isFinite(mw)) continue;
     const mwh = mw*(15/60);
@@ -1310,6 +1325,10 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
       pumpsChgMwh += pumps * (15/60);
       if (isFinite(p)) pumpsChgEur += pumps * (15/60) * p;
     }
+    const gen  = b['gen_total_mw'];
+    const load = b['load_mw'];
+    if (isFinite(gen))  genMwh  += gen  * (15/60);
+    if (isFinite(load)) loadMwh += load * (15/60);
   }
   const net = expEur - impEur;
   const avgImpPrice = impMwh > 0 ? impEur / impMwh : NaN;
@@ -1352,6 +1371,61 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
   document.getElementById('p-current').textContent = isFinite(curP)?fmt1(curP):'—';
   document.getElementById('p-avg').textContent     = pN?fmt1(pSum/pN):'—';
   document.getElementById('p-minmax').textContent  = pN?`${fmt1(pMin)} / ${fmt1(pMax)}`:'—';
+
+  // ── per-country consumed GWh cards ──
+  const ctryGwh = {}, ctryEur = {}, ctryMwh = {};
+  for (const f of FLOW_CFG) { ctryGwh[f.key] = 0; ctryEur[f.key] = 0; ctryMwh[f.key] = 0; }
+  for (const b of binned) {
+    const load  = Math.max(0, b['load_mw'] || 0);
+    const p     = pByBin[b.ts] ?? getPriceAt(pd, b.ts);
+    let grossImp = 0, grossExp = 0;
+    for (const f of FLOW_CFG) {
+      const v = b[f.key];
+      if (!isFinite(v)) continue;
+      if (v > 0) grossImp += v; else grossExp += Math.abs(v);
+    }
+    const netFlow = grossImp - grossExp;  // >0 = net import, <0 = net export
+    const impFrac = grossImp > 0 && netFlow > 0 ? netFlow / grossImp : 0;
+    const expFrac = grossExp > 0 && netFlow < 0 ? Math.abs(netFlow) / grossExp : 0;
+    for (const f of FLOW_CFG) {
+      const v = b[f.key];
+      if (!isFinite(v)) continue;
+      const mwh = v > 0 ? v * impFrac * (15/60) : -Math.abs(v) * expFrac * (15/60);
+      ctryGwh[f.key] += mwh / 1000;
+      if (isFinite(p)) { ctryEur[f.key] += mwh * p; ctryMwh[f.key] += Math.abs(mwh); }
+    }
+  }
+  const bar = document.getElementById('flows-country-bar');
+  const hasAny = FLOW_CFG.some(f => Math.abs(ctryGwh[f.key]) > 0.01);
+  if (!hasAny) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  const useEur = flowsEurMode;
+  const unit = useEur ? 'млн.€' : 'GWh';
+  bar.innerHTML = '<div class="stat-label" style="margin-bottom:6px;">Трансгранична енергия за деня</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;">'
+    + FLOW_CFG.map(f => {
+        const gwh = ctryGwh[f.key];
+        if (Math.abs(gwh) < 0.01) return '';
+        const isImp = gwh > 0;
+        const arrow = isImp ? '▲' : '▼';
+        const label = isImp ? 'внос' : 'износ';
+        const avgP  = ctryMwh[f.key] > 0 ? ctryEur[f.key] / ctryMwh[f.key] : NaN;
+        const eurVal = ctryEur[f.key] / 1e6;  // MWh*EUR → млн.€
+        const arrowSpan = `<span style="color:${isImp?'#cc2200':'#1a8a1a'}">${arrow}</span>`;
+        const mainVal = useEur
+          ? `${arrowSpan} ${Math.abs(eurVal).toFixed(2)}`
+          : `${arrowSpan} ${Math.abs(gwh).toFixed(1)}`;
+        const sub = useEur
+          ? (Math.abs(gwh) > 0.01 ? `<div class="stat-unit">${Math.abs(gwh).toFixed(1)} GWh ${label}</div>` : '')
+          : (isFinite(avgP) ? `<div class="stat-unit">@ ${avgP.toFixed(0)} €/MWh</div>` : '');
+        return `<div class="balance-item" style="border-top:3px solid ${f.color};min-width:90px;">
+          <div class="stat-label">${f.label}</div>
+          <div class="stat-val">${mainVal}</div>
+          <div class="stat-unit">${unit} ${label}</div>
+          ${sub}
+        </div>`;
+      }).join('')
+    + '</div>';
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1755,6 +1829,7 @@ const LO = {
   yaxis:  { gridcolor: '#dde8f5', linecolor: '#b8d9f5', tickfont: { size: 10 } },
   legend: { bgcolor: 'rgba(255,255,255,0.85)', bordercolor: '#c5d8ee', borderwidth: 1, font: { size: 10 } },
   hovermode: 'x unified',
+  dragmode: false,
 };
 
 function drawTimeline(binned, pd, dateStr) {
@@ -1829,14 +1904,16 @@ function drawTimeline(binned, pd, dateStr) {
   Plotly.react('chart-timeline', traces, {
     ...LO,
     uirevision: `timeline-${reMode}-${eurMode}`,
-    dragmode: window.innerWidth < 640 ? false : 'zoom',
+    // dragmode:false (in LO) blocks click/touch-drag zoom already; pinch-zoom
+    // is a separate touch gesture it doesn't cover, so pin the axes too on
+    // narrow screens -- otherwise a two-finger pinch can still narrow the chart.
     xaxis: { ...LO.xaxis, type: 'date', title: 'Час', fixedrange: window.innerWidth < 640 },
     yaxis:  { ...LO.yaxis, title: yUnit, fixedrange: window.innerWidth < 640 },
     yaxis2: { title: 'EUR/MWh', overlaying: 'y', side: 'right',
               gridcolor: 'transparent', linecolor: '#e07000',
               tickfont: { size: 9, color: '#e07000' }, titlefont: { size: 10, color: '#e07000' } },
-    legend: { ...LO.legend, orientation: 'h', y: -0.15 },
-    margin: { t: 8, b: 90, l: 58, r: 58 },
+    legend: { ...LO.legend, orientation: 'h', y: window.innerWidth < 640 ? -0.28 : -0.15 },
+    margin: { t: 8, b: window.innerWidth < 640 ? 140 : 90, l: 58, r: 58 },
   }, { responsive: true, displayModeBar: false });
 
   // Attach legend click listener once
@@ -1897,11 +1974,10 @@ function drawFlowsTimeline(binned, pd) {
   Plotly.react('chart-flows-ts', traces, {
     ...LO,
     uirevision: 'flows',
-    dragmode: window.innerWidth < 640 ? false : 'zoom',
     xaxis: { ...LO.xaxis, type: 'date', title: 'Час', fixedrange: window.innerWidth < 640 },
     yaxis: { ...LO.yaxis, title: `${unit} (+ внос / − износ)`, fixedrange: window.innerWidth < 640 },
-    legend: { ...LO.legend, orientation: 'h', y: -0.2 },
-    margin: { t: 8, b: 90, l: 58, r: 10 },
+    legend: { ...LO.legend, orientation: 'h', y: window.innerWidth < 640 ? -0.28 : -0.2 },
+    margin: { t: 8, b: window.innerWidth < 640 ? 120 : 90, l: 58, r: 10 },
     shapes: [{ type:'line', xref:'paper', x0:0, x1:1, y0:0, y1:0,
                line: { color:'#aaa', width:1, dash:'dash' } }],
   }, { responsive: true, displayModeBar: false });
@@ -2061,7 +2137,7 @@ async function refresh() {
     updateStatusCards(displaySnap, pd);
     updateFlowsTable(displaySnap, pd);
     updateGenTable(displaySnap);
-    updateDayBalance(displayBinned, pd, dateStr);
+    updateDayBalance(displayBinned, pd, dateStr, null);
 
     drawPie(displaySnap);
     updateDayStartLabel();
@@ -2238,6 +2314,7 @@ setInterval(refresh, REFRESH_MS);
 <footer style="text-align:center;padding:16px 20px 24px;font-size:0.72rem;color:#7a8aaa;">
   Неофициален ресурс &bull; данни от <a href="https://www.eso.bg" target="_blank" rel="noopener" style="color:#004494;">ЕСО ЕАД</a> и <a href="https://ibex.bg" target="_blank" rel="noopener" style="color:#004494;">IBEX</a>
   &bull; <a href="https://github.com/yyoncho/eso-dashboard/blob/master/README.md" target="_blank" rel="noopener" style="color:#004494;">Документация (README)</a>
+  &bull; <a href="https://github.com/yyoncho/eso-dashboard/blob/master/CHANGELOG.md" target="_blank" rel="noopener" style="color:#004494;">Промени (Changelog)</a>
   &bull; <a href="https://github.com/yyoncho/eso-dashboard" target="_blank" rel="noopener" style="color:#004494;">GitHub</a>
 </footer>
 <img src="https://hits.sh/yyoncho.github.io/eso-dashboard.svg" style="display:none" alt="" referrerpolicy="no-referrer-when-downgrade">

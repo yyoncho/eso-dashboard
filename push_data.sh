@@ -13,7 +13,7 @@ DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/fetch.py" --prices-only || t
 set -euo pipefail
 DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/fetch.py"
 
-# ── Secondary scripts — errors must not block the push ────────────────────────
+# ── Secondary scripts — errors must NOT block the push ───────────────────────
 set +e
 DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/compute_records.py" || true
 DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/update_records_history_jsonl.py" || true
@@ -24,6 +24,9 @@ PROFILE="$DATA_WORKTREE/data/load_profile.json"
 if ! grep -q "\"computed\": \"$TODAY\"" "$PROFILE" 2>/dev/null; then
     DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/compute_load_profile.py" || true
 fi
+
+# Ember hourly prices — refresh every 3 days (large ZIP, so TTL-gated inside script)
+DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/update_ember_prices.py" || true
 
 # ── Git: best-effort — data is always committed locally; push when GH reachable
 cd "$DATA_WORKTREE"
