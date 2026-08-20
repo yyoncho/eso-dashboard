@@ -481,11 +481,11 @@ function renderDaily(days) {
     dragmode: false,
     height: 420,
     margin: { t: 30, r: 16, b: 64, l: 56 },
-    xaxis: { type: 'category', tickangle: -55, tickfont: { size: 10 }, showgrid: false },
+    xaxis: { type: 'category', tickangle: -55, tickfont: { size: 10 }, showgrid: false, fixedrange: true },
     yaxis: {
       title: { text: 'ГВтч/ден', font: { size: 12, color: '#5a6a80' } },
       tickfont: { size: 11 },
-      gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
+      gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false, fixedrange: true,
     },
     shapes: weekendShapes,
     legend: { orientation: 'h', y: -0.28, x: 0.5, xanchor: 'center', font: { size: 11 } },
@@ -541,8 +541,9 @@ function renderProfile(recs, dateStr) {
   Plotly.react('chart-profile', traces, {
     height: 380,
     margin: { t: 16, r: 16, b: 40, l: 52 },
-    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12 },
-    yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', rangemode: 'tozero' },
+    dragmode: false,
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 10 }, nticks: 12, fixedrange: true },
+    yaxis: { title: { text: 'MW', font: { size: 11, color: '#5a6a80' } }, tickfont: { size: 11 }, gridcolor: '#e8f0fa', rangemode: 'tozero', fixedrange: true },
     showlegend: false,
     plot_bgcolor: '#fff', paper_bgcolor: '#fff', hovermode: 'x unified',
   }, { responsive: true, displayModeBar: false });
