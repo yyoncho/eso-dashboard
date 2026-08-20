@@ -137,6 +137,8 @@ input[type="date"]#date-picker {
 
   <div id="content" style="display:none">
 
+    <div id="flow-coverage-banner" style="display:none;background:#fff8e1;border:1px solid #f0d9a0;border-radius:6px;padding:8px 14px;margin-bottom:14px;font-size:0.78rem;color:#7a5a10;"></div>
+
     <div class="panel">
       <div class="panel-header">Ключови показатели за деня</div>
       <div class="panel-body">
@@ -251,6 +253,12 @@ function analyze(day) {
   const p = day.periods;
 
   const rows = p.map(r => {
+    // ENTSOE publishes day-ahead scheduled exchanges progressively -- for a
+    // day more than ~1 day out, most intervals genuinely have no value yet
+    // (not zero flow, just not published). Treating a missing reading as 0
+    // silently understates money flow to a misleading "0 EUR" and draws a
+    // flat line as if BG really stopped trading, so track it separately.
+    const hasFlow = r.fl_gr_bg != null || r.fl_bg_gr != null || r.fl_ro_bg != null || r.fl_bg_ro != null;
     const impGr = r.fl_gr_bg || 0, expGr = r.fl_bg_gr || 0;   // BG<->GR, MW
     const impRo = r.fl_ro_bg || 0, expRo = r.fl_bg_ro || 0;   // BG<->RO, MW
     const netGr = expGr - impGr;   // + = BG exports to GR (raw, physical -- used for flow charts / congestion)
@@ -278,13 +286,13 @@ function analyze(day) {
     return {
       hour: r.time_bg,
       bg: r.bg_price, gr: r.gr_price, ro: r.ro_price,
-      netGr, netRo, capGr, capRo,
+      hasFlow, netGr, netRo, capGr, capRo,
       capExportGr, capImportGr, capExportRo, capImportRo,
       coupledGr: r.gr_price != null && Math.abs(r.gr_price - r.bg_price) <= COUPLE_EUR,
       coupledRo: r.ro_price != null && Math.abs(r.ro_price - r.bg_price) <= COUPLE_EUR,
       congestedGr: capGr > 0 && Math.abs(netGr) >= CONGEST_UTIL * capGr,
       congestedRo: capRo > 0 && Math.abs(netRo) >= CONGEST_UTIL * capRo,
-      moneyFlow, transitMw,
+      moneyFlow: hasFlow ? moneyFlow : null, transitMw,
       localHour: parseInt(r.time_bg.split(':')[0], 10),
     };
   });
@@ -506,11 +514,26 @@ function setKpis(rows) {
   document.getElementById('kv-gr').textContent = fmtPrice(avg(rows.map(r => r.gr)));
   document.getElementById('kv-ro').textContent = fmtPrice(avg(rows.map(r => r.ro)));
 
-  const money = rows.reduce((s, r) => s + (r.moneyFlow || 0), 0);
+  const flowRows = rows.filter(r => r.hasFlow);
+  const banner = document.getElementById('flow-coverage-banner');
+  if (flowRows.length < rows.length * 0.5) {
+    banner.style.display = '';
+    banner.textContent = `⚠ Данните за планирания обмен (потоци/капацитет) за този ден все още не са напълно публикувани от ENTSOE (${flowRows.length}/${rows.length} интервала налични) — попълват се постепенно с приближаването на деня. Цените по-долу са пълни.`;
+  } else {
+    banner.style.display = 'none';
+  }
+  const money = flowRows.reduce((s, r) => s + (r.moneyFlow || 0), 0);
   const transitMwh = rows.reduce((s, r) => s + (r.transitMw || 0) * r._stepH, 0);
 
-  document.getElementById('kv-money').textContent = fmtEUR(money);
-  document.getElementById('ks-money').textContent = `изключен реекспорт: ${transitMwh.toFixed(0)} МВч`;
+  if (flowRows.length === 0) {
+    document.getElementById('kv-money').textContent = '—';
+    document.getElementById('ks-money').textContent = 'няма данни за планирания обмен все още';
+  } else {
+    document.getElementById('kv-money').textContent = fmtEUR(money);
+    const coverage = flowRows.length < rows.length
+      ? ` (частично: ${flowRows.length}/${rows.length} интервала)` : '';
+    document.getElementById('ks-money').textContent = `изключен реекспорт: ${transitMwh.toFixed(0)} МВч${coverage}`;
+  }
 }
 
 // ── best 4h charge/discharge window (BG price) ──────────────────────────────
@@ -613,7 +636,7 @@ function renderFlowPanel(elId, rows, netKey, capImportKey, capExportKey, congKey
     { x, y: exportY, customdata: rows.map(r => r[capExportKey]), name: `Капацитет за износ`, type: 'scatter', mode: 'lines',
       line: { color: '#c9c9c9', width: 1, dash: 'dash' }, showlegend: false,
       hovertemplate: `Капацитет за износ: %{customdata:.0f} MW<extra></extra>` },
-    { x, y: rows.map(r => -r[netKey]), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines',
+    { x, y: rows.map(r => r.hasFlow ? -r[netKey] : null), name: `Нетен поток БГ↔${label}`, type: 'scatter', mode: 'lines', connectgaps: false,
       fill: 'tozeroy', fillcolor: color + '33', line: { color, width: 1.8 },
       hovertemplate: `%{x}<br>%{y:.0f} MW<extra></extra>` },
     { x: congX, y: congY, name: 'Наситен капацитет', type: 'scatter', mode: 'markers',
@@ -754,13 +777,20 @@ function goTomorrow() {
 async function main() {
   const idx = await getJSON(`${BASE}/ibex_sdac/index.json`);
   const today = todayBG();
+  const tomorrow = addDaysBG(today, 1);
   allDates = (idx && idx.dates ? idx.dates : []).filter(d => d <= today).sort();
   if (!allDates.length) {
     document.getElementById('status').textContent = 'Няма налични данни.';
     return;
   }
   const hashDate = location.hash.match(/date=(\d{4}-\d{2}-\d{2})/);
-  currentDate = (hashDate && allDates.includes(hashDate[1])) ? hashDate[1] : allDates[allDates.length - 1];
+  const hashVal = hashDate ? hashDate[1] : null;
+  // A shared link to tomorrow (e.g. from the "Утре" button) must still work
+  // on a fresh load -- allDates is deliberately capped at today above, so
+  // check for that one special case explicitly rather than rejecting it.
+  currentDate = hashVal && (allDates.includes(hashVal) || hashVal === tomorrow)
+    ? hashVal
+    : allDates[allDates.length - 1];
   document.getElementById('date-picker').min = allDates[0];
   document.getElementById('date-picker').max = allDates[allDates.length - 1];
   loadDay(currentDate);
