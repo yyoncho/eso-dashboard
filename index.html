@@ -369,10 +369,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
       <div class="panel" id="flows-live">
         <div class="panel-header">
           <a href="#flows-live" class="anchor-link">Трансгранични потоци</a>
-          <span id="flows-price-note" style="font-weight:400;font-size:0.68rem;opacity:0.8;"></span>
-          <button class="info-btn" onclick="document.getElementById('flows-info').classList.toggle('open')" title="Информация">?</button>
         </div>
-        <div id="flows-info" class="info-dropdown">Стойностите в EUR/h са <b>оценка</b>, не реален паричен поток: <b>износ</b> = поток(MW) × текуща IBEX DA цена за БГ; <b>внос</b> = −поток(MW) × същата цена. Цената на съседната страна (РО/ГР/РС/МК/ТР) не е използвана — при пазарно обвързване (market coupling) цените обичайно съвпадат, но при насищане на капацитета (congestion) те могат да се разминат и реалният приход/разход да е различен. Реален паричен поток зависи и от договорните условия на оператора, преносни такси и др. За реални цени по граница вижте <a href="sdac_mc.html">SDAC — Пазарно обвързване</a>.</div>
         <div class="panel-body" style="padding:6px 12px 10px;">
           <table class="flows-table">
             <thead>
@@ -380,7 +377,6 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
                 <th>Страна</th>
                 <th>Баланс</th>
                 <th style="width:100px;">Поток</th>
-                <th style="text-align:right;">EUR/h</th>
               </tr>
             </thead>
             <tbody id="flows-tbody"></tbody>
@@ -1216,23 +1212,14 @@ function updateStatusCards(latest, pd) {
 
 function updateFlowsTable(latest, pd) {
   if (!latest) return;
-  const tsMs   = toUtcMs(latest);
-  const price  = getPriceAt(pd, tsMs);
   const maxAbs = Math.max(1, ...FLOW_CFG.map(f=>Math.abs(latest[f.key]||0)));
-  const noteEl = document.getElementById('flows-price-note');
-  if (noteEl) noteEl.textContent = isFinite(price)?`@ ${price.toFixed(1)} €/MWh IBEX`:'';
-
 
   const tbody = document.getElementById('flows-tbody');
   tbody.innerHTML = '';
-  const negPrice = isFinite(price) && price < 0;
   for (const f of FLOW_CFG) {
     const mw = latest[f.key]||0, isImp = mw>0;
     const pct = Math.min(100,(Math.abs(mw)/maxAbs)*48);
-    const eurVal = isFinite(price) ? (isImp ? -1 : 1) * Math.abs(mw) * price : NaN;
-    const beneficial = isFinite(price) ? (isImp === negPrice) : !isImp;
-    const mwClass  = beneficial ? 'export-val' : 'import-val';
-    const eurColor = isFinite(eurVal) ? (eurVal >= 0 ? '#1a8a1a' : '#cc2200') : '#666';
+    const mwClass = isImp ? 'import-val' : 'export-val';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="font-weight:600;">${f.label}</td>
@@ -1240,18 +1227,14 @@ function updateFlowsTable(latest, pd) {
       <td><div class="flow-bar-wrap">
         <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:#ccc;"></div>
         <div class="flow-bar ${isImp?'import':'export'}" style="width:${pct}%;"></div>
-      </div></td>
-      <td style="text-align:right;font-size:0.75rem;color:${eurColor};" title="Оценка на база IBEX DA цена">${isFinite(eurVal)?fmtEur(eurVal)+'/h ~':'—'}</td>`;
+      </div></td>`;
     tbody.appendChild(tr);
   }
 
   // Net total row
   const netMw  = latest['net_import_mw'] || 0;
   const isNetImp = netMw > 0;
-  const netEurVal = isFinite(price) ? (isNetImp ? -1 : 1) * Math.abs(netMw) * price : NaN;
-  const netBeneficial = isFinite(price) ? (isNetImp === negPrice) : !isNetImp;
-  const netMwClass  = netBeneficial ? 'export-val' : 'import-val';
-  const netEurColor = isFinite(netEurVal) ? (netEurVal >= 0 ? '#1a8a1a' : '#cc2200') : '#666';
+  const netMwClass = isNetImp ? 'import-val' : 'export-val';
   const netTr = document.createElement('tr');
   netTr.style.cssText = 'border-top:2px solid #c5d8ee;font-weight:700;';
   netTr.innerHTML = `
@@ -1260,8 +1243,7 @@ function updateFlowsTable(latest, pd) {
     <td><div class="flow-bar-wrap">
       <div style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:#999;"></div>
       <div class="flow-bar ${isNetImp?'import':'export'}" style="width:${Math.min(48,(Math.abs(netMw)/maxAbs)*48)}%;"></div>
-    </div></td>
-    <td style="text-align:right;font-size:0.75rem;color:${netEurColor};">${isFinite(netEurVal)?fmtEur(netEurVal)+'/h ~':'—'}</td>`;
+    </div></td>`;
   tbody.appendChild(netTr);
 }
 
