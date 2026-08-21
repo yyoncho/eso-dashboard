@@ -87,38 +87,52 @@ header a:hover { color: #fff; }
 
 <div class="page">
 
-  <div class="panel">
+  <div class="kpi-row" id="kpi-row" style="display:none">
+    <div class="kpi batt">
+      <div class="kpi-label">Батерии — средно на ден</div>
+      <div class="kpi-val" id="kv-batt">—</div>
+      <div class="kpi-sub" id="ks-batt"></div>
+    </div>
+    <div class="kpi pumps">
+      <div class="kpi-label">Помпи — средно на ден</div>
+      <div class="kpi-val" id="kv-pumps">—</div>
+      <div class="kpi-sub" id="ks-pumps"></div>
+    </div>
+    <div class="kpi total">
+      <div class="kpi-label">Общо — средно на ден</div>
+      <div class="kpi-val" id="kv-total">—</div>
+      <div class="kpi-sub" id="ks-total"></div>
+    </div>
+  </div>
+
+  <div id="status">Зареждане…</div>
+
+  <div class="panel" id="panel-batt" style="display:none">
     <div class="panel-header">
-      <span>Дневна енергия за зареждане, последните 35 дни — батерии (ССЕЕ) и помпи (ПАВЕЦ)</span>
+      <span>Батерии (ССЕЕ) — дневна енергия за зареждане, последните 35 дни</span>
     </div>
     <div class="panel-body">
-
-      <div class="kpi-row" id="kpi-row" style="display:none">
-        <div class="kpi batt">
-          <div class="kpi-label">Батерии — средно на ден</div>
-          <div class="kpi-val" id="kv-batt">—</div>
-          <div class="kpi-sub" id="ks-batt"></div>
-        </div>
-        <div class="kpi pumps">
-          <div class="kpi-label">Помпи — средно на ден</div>
-          <div class="kpi-val" id="kv-pumps">—</div>
-          <div class="kpi-sub" id="ks-pumps"></div>
-        </div>
-        <div class="kpi total">
-          <div class="kpi-label">Общо — средно на ден</div>
-          <div class="kpi-val" id="kv-total">—</div>
-          <div class="kpi-sub" id="ks-total"></div>
-        </div>
+      <div id="chart-batt"></div>
+      <div class="note">
+        <b>Данни:</b> ЕСО SCADA, 5-минутни снимки.
+        Дневна енергия = сума от мощността на зареждане × 5 мин.
+        Само зареждане (отрицателни стойности на ССЕЕ), не разреждане.
+        <br><b>Оранжеви ленти:</b> съботно-неделни дни.
+        <br>Дни с непълни данни (под 270 от 288 снимки) са пропуснати, освен днешния ден (маркиран с *), който е частичен и се допълва.
       </div>
+    </div>
+  </div>
 
-      <div id="status">Зареждане…</div>
-      <div id="chart"></div>
-
+  <div class="panel" id="panel-pumps" style="display:none">
+    <div class="panel-header">
+      <span>Помпи (ПАВЕЦ) — дневна енергия за зареждане, последните 35 дни</span>
+      <a href="pumps.html" style="font-size:0.72rem;font-weight:400;color:#2d6bbf;text-decoration:none;">по централи →</a>
+    </div>
+    <div class="panel-body">
+      <div id="chart-pumps"></div>
       <div class="note">
         <b>Данни:</b> ЕСО SCADA, 5-минутни снимки от 3 юни 2026 (пускане на помпите на ПАВЕЦ Чаира).
-        Дневна енергия = сума от мощността на зареждане × 5 мин.
-        <br><b>Батерии (ССЕЕ):</b> само зареждане (отрицателни стойности на ССЕЕ).
-        <b>Помпи:</b> помпен режим на ПАВЕЦ (доминиран от Чаира).
+        Дневна енергия = сума от мощността на зареждане × 5 мин. Помпен режим на ПАВЕЦ (доминиран от Чаира) — за разбивка по централа вижте <a href="pumps.html">Помпи по централи</a>.
         <br><b>Жълта линия</b> (кликнете в легендата, за да я покажете): номинален капацитет на резервоара на ПАВЕЦ Чаира (~6.4 ГВтч) — колко енергия побира един пълен резервоар за сравнение с дневното зареждане.
         <br><b>Оранжеви ленти:</b> съботно-неделни дни.
         <br>Дни с непълни данни (под 270 от 288 снимки) са пропуснати, освен днешния ден (маркиран с *), който е частичен и се допълва.
@@ -188,20 +202,60 @@ function setKpis(days) {
   document.getElementById('kpi-row').style.display = '';
 }
 
-function render(days) {
+function weekendShapesFor(days) {
+  return days
+    .map((d, i) => ({ i, wknd: isWeekend(d.date) }))
+    .filter(d => d.wknd)
+    .map(d => ({
+      type: 'rect', xref: 'x', yref: 'paper',
+      x0: d.i - 0.5, x1: d.i + 0.5, y0: 0, y1: 1,
+      fillcolor: '#f0a500', opacity: 0.10, line: { width: 0 },
+      layer: 'below',
+    }));
+}
+
+function baseLayout(days, extraShapes) {
   const x = days.map(d => d.date + (d.partial ? ' *' : ''));
+  return {
+    x,
+    layout: {
+      bargap: 0.22,
+      dragmode: false,
+      height: 420,
+      margin: { t: 20, r: 16, b: 64, l: 56 },
+      xaxis: { type: 'category', tickangle: -55, tickfont: { size: 10 }, showgrid: false },
+      yaxis: {
+        title: { text: 'ГВтч/ден', font: { size: 12, color: '#5a6a80' } },
+        tickfont: { size: 11 },
+        gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
+      },
+      shapes: weekendShapesFor(days).concat(extraShapes || []),
+      showlegend: false,
+      plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+      hovermode: 'closest',
+    },
+  };
+}
+
+function renderBatt(days) {
+  const { x, layout } = baseLayout(days);
+  const traces = [{
+    x, y: days.map(d => +d.batt.toFixed(3)),
+    name: 'Батерии (ССЕЕ)', type: 'bar',
+    marker: { color: '#544fc5', line: { color: '#fff', width: 1 } },
+    hovertemplate: '%{x}<br>Батерии: %{y:.2f} ГВтч<extra></extra>',
+  }];
+  Plotly.newPlot('chart-batt', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function renderPumps(days) {
+  const { x, layout } = baseLayout(days);
   const traces = [
     {
       x, y: days.map(d => +d.pumps.toFixed(3)),
-      name: 'Помпи (ПАВЕЦ)', type: 'bar', width: 0.49,
+      name: 'Помпи (ПАВЕЦ)', type: 'bar',
       marker: { color: '#2caffe', line: { color: '#fff', width: 1 } },
       hovertemplate: '%{x}<br>Помпи: %{y:.2f} ГВтч<extra></extra>',
-    },
-    {
-      x, y: days.map(d => +d.batt.toFixed(3)),
-      name: 'Батерии (ССЕЕ)', type: 'bar', width: 0.49,
-      marker: { color: '#544fc5', line: { color: '#fff', width: 1 } },
-      hovertemplate: '%{x}<br>Батерии: %{y:.2f} ГВтч<extra></extra>',
     },
     {
       x, y: x.map(() => CHAIRA_STORAGE_GWH),
@@ -211,35 +265,10 @@ function render(days) {
       hovertemplate: 'Резервоар Чаира: %{y} ГВтч<extra></extra>',
     },
   ];
-
-  const weekendShapes = days
-    .map((d, i) => ({ i, wknd: isWeekend(d.date) }))
-    .filter(d => d.wknd)
-    .map(d => ({
-      type: 'rect', xref: 'x', yref: 'paper',
-      x0: d.i - 0.5, x1: d.i + 0.5, y0: 0, y1: 1,
-      fillcolor: '#f0a500', opacity: 0.10, line: { width: 0 },
-      layer: 'below',
-    }));
-
-  Plotly.newPlot('chart', traces, {
-    barmode: 'group',
-    bargap: 0.22,
-    bargroupgap: 0.0,
-    dragmode: false,
-    height: 520,
-    margin: { t: 30, r: 16, b: 64, l: 56 },
-    xaxis: { type: 'category', tickangle: -55, tickfont: { size: 10 }, showgrid: false },
-    yaxis: {
-      title: { text: 'ГВтч/ден', font: { size: 12, color: '#5a6a80' } },
-      tickfont: { size: 11 },
-      gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
-    },
-    shapes: weekendShapes,
-    legend: { orientation: 'h', y: -0.28, x: 0.5, xanchor: 'center', font: { size: 11 } },
-    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
-    hovermode: 'closest',
-  }, { responsive: true, displayModeBar: false });
+  layout.showlegend = true;
+  layout.legend = { orientation: 'h', y: -0.28, x: 0.5, xanchor: 'center', font: { size: 11 } };
+  layout.margin = { t: 20, r: 16, b: 64, l: 56 };
+  Plotly.newPlot('chart-pumps', traces, layout, { responsive: true, displayModeBar: false });
 }
 
 async function main() {
@@ -254,7 +283,10 @@ async function main() {
     if (!days.length) throw new Error('no data');
     statusEl.style.display = 'none';
     setKpis(days.filter(d => !d.partial));
-    render(days);
+    document.getElementById('panel-batt').style.display = '';
+    document.getElementById('panel-pumps').style.display = '';
+    renderBatt(days);
+    renderPumps(days);
   } catch (e) {
     statusEl.textContent = 'Грешка при зареждане на данните: ' + e.message;
   }
