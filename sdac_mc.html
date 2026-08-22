@@ -714,6 +714,18 @@ async function loadDay(dateStr) {
     return;
   }
 
+  // Day-ahead prices publish all at once (~13:00 CET) rather than
+  // progressively -- unlike scheduled flows, a day with only a handful of
+  // priced intervals means the auction simply hasn't cleared yet, not that
+  // real data is missing for the rest. Showing 1 real hour next to 23 blank
+  // ones is more confusing than useful, so don't render the day at all.
+  const pricedCount = day.periods.filter(p => p.bg_price != null).length;
+  if (pricedCount < day.periods.length * 0.9) {
+    statusEl.textContent = `Борсовите цени за ${dateStr} все още не са публикувани (наличен ${pricedCount}/${day.periods.length} интервала) — проверете отново по-късно.`;
+    document.getElementById('date-picker').value = dateStr;
+    return;
+  }
+
   if (!allDates.includes(dateStr)) {
     allDates = [...allDates, dateStr].sort();
     const picker = document.getElementById('date-picker');
