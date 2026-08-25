@@ -1,5 +1,24 @@
 [
   {
+    "id": "2026-08-25-solar-load-spike-afternoon",
+    "date": "2026-08-25",
+    "fields": ["ФЕЦ", "Товар на РБ", "load_mw"],
+    "field_labels": {"ФЕЦ": "solar generation", "Товар на РБ": "total load", "load_mw": "total load (derived, index.html-facing)"},
+    "window_utc": {
+      "start": "2026-08-25T13:40:03Z",
+      "end": "2026-08-25T17:20:03Z"
+    },
+    "records_affected": 43,
+    "description": "Third occurrence of the same failure mode as 2026-08-18 and 2026-08-19: load climbed steadily from a normal ~0.99x ratio vs the prior day up to 1.44x (peak 6569 MW, again far above this project's ~4600 MW historical ceiling), and solar failed to taper -- still 2283 MW at 20:15 Sofia local (17:15 UTC), a 5.6x ratio vs the same time the day before. Both snapped back simultaneously at 2026-08-25T17:20:03Z.",
+    "observed_peak_mw": {
+      "ФЕЦ": 3632.0,
+      "Товар на РБ": 6569.0
+    },
+    "correction_method": "Same method as the two prior occurrences: interpolated from 2026-08-24's shape at matching times-of-day, with per-field scale factors blended between the boundary ratios (load 0.985x->1.032x, solar 1.411x->1.0x) for continuity at both ends. load_mw synced alongside Товар на РБ from the start this time (see the load_mw lesson learned on the 2026-08-18 entry). Original values preserved per-record under _raw_backup.",
+    "status": "fixed",
+    "note": "Self-corrected on ESO's side at 17:20:03Z, same recovery-time pattern as 2026-08-18 (17:20:03Z) and 2026-08-19 (06:05:03Z -- different clock time, but also a :X0:03Z / :X5:03Z-ish boundary). This is now the third confirmed occurrence -- worth treating as a recurring ESO-side pattern rather than a one-off, though no automatic detection is running per the user's earlier explicit request to keep this manual."
+  },
+  {
     "id": "2026-08-19-solar-load-spike-predawn",
     "date": "2026-08-19",
     "fields": ["ФЕЦ", "Товар на РБ"],
