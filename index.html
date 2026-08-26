@@ -405,6 +405,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
             </div>
             <div class="balance-item revenue">
               <div class="balance-label">Износ</div>
+              <div class="balance-val revenue" id="b-export-eur">—</div>
               <div class="stat-unit" id="b-export-mwh">—</div>
             </div>
             <div class="balance-item" style="grid-column:1/-1;">
@@ -511,7 +512,6 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
     <div class="panel-header">
       <a href="#flows-profile" class="anchor-link">Трансгранични потоци — дневен профил (+ внос / &minus; износ)</a>
       <div style="display:flex;align-items:center;gap:6px;">
-        <button class="tog-btn" id="tog-flows-eur" onclick="setFlowsEurMode(!flowsEurMode)">€/ч</button>
         <button class="fs-btn" onclick="toggleFullscreen('flows-profile','chart-flows-ts')" title="Цял екран">⛶</button>
       </div>
     </div>
@@ -597,7 +597,6 @@ let priceCache = {};
 const chartMode = 'instant';
 let reMode            = false;
 let eurMode           = false;
-let flowsEurMode      = false;
 const totalStatsVisible = true;
 let colMode           = false;
 let pieMwhMode        = false;
@@ -908,13 +907,6 @@ function setEurMode(on) {
   }
   writeHash(currentDay, null);
 }
-function setFlowsEurMode(on) {
-  flowsEurMode = on;
-  document.getElementById('tog-flows-eur').classList.toggle('active', on);
-  if (window._lastFlowsBinned) drawFlowsTimeline(window._lastFlowsBinned, window._lastFlowsPd);
-  if (window._lastBinned) updateDayBalance(window._lastBinned, window._lastPriceData, window._lastDateStr);
-}
-
 function setColMode(on) {
   colMode = on;
   document.getElementById('tog-col').classList.toggle('active', on);
@@ -1343,6 +1335,9 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
   impEl.textContent = fmtEur(impDisplay);
   impEl.className = 'balance-val ' + (impDisplay >= 0 ? 'revenue' : 'expense');
   document.getElementById('b-import-mwh').textContent = fmt0(impMwh)+' MWh внос'+(isFinite(avgImpPrice)?` @ ${fmt1(avgImpPrice)} EUR/MWh`:'');
+  const expEl = document.getElementById('b-export-eur');
+  expEl.textContent = fmtEur(expDisplay);
+  expEl.className = 'balance-val ' + (expDisplay >= 0 ? 'revenue' : 'expense');
   document.getElementById('b-export-mwh').textContent = fmt0(expMwh)+' MWh износ'+(isFinite(avgExpPrice)?` @ ${fmt1(avgExpPrice)} EUR/MWh`:'');
   const netEl = document.getElementById('b-net-eur');
   netEl.textContent = fmtEur(net);
@@ -1375,11 +1370,9 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
   document.getElementById('p-minmax').textContent  = pN?`${fmt1(pMin)} / ${fmt1(pMax)}`:'—';
 
   // ── per-country consumed GWh cards ──
-  const ctryGwh = {}, ctryEur = {}, ctryMwh = {};
-  for (const f of FLOW_CFG) { ctryGwh[f.key] = 0; ctryEur[f.key] = 0; ctryMwh[f.key] = 0; }
+  const ctryGwh = {};
+  for (const f of FLOW_CFG) { ctryGwh[f.key] = 0; }
   for (const b of binned) {
-    const load  = Math.max(0, b['load_mw'] || 0);
-    const p     = pByBin[b.ts] ?? getPriceAt(pd, b.ts);
     let grossImp = 0, grossExp = 0;
     for (const f of FLOW_CFG) {
       const v = b[f.key];
@@ -1394,15 +1387,12 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
       if (!isFinite(v)) continue;
       const mwh = v > 0 ? v * impFrac * (15/60) : -Math.abs(v) * expFrac * (15/60);
       ctryGwh[f.key] += mwh / 1000;
-      if (isFinite(p)) { ctryEur[f.key] += mwh * p; ctryMwh[f.key] += Math.abs(mwh); }
     }
   }
   const bar = document.getElementById('flows-country-bar');
   const hasAny = FLOW_CFG.some(f => Math.abs(ctryGwh[f.key]) > 0.01);
   if (!hasAny) { bar.style.display = 'none'; return; }
   bar.style.display = '';
-  const useEur = flowsEurMode;
-  const unit = useEur ? 'млн.€' : 'GWh';
   bar.innerHTML = '<div class="stat-label" style="margin-bottom:6px;">Трансгранична енергия за деня</div>'
     + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;">'
     + FLOW_CFG.map(f => {
@@ -1411,20 +1401,11 @@ function updateDayBalance(binned, pd, dateStr, snapMs = null) {
         const isImp = gwh > 0;
         const arrow = isImp ? '▲' : '▼';
         const label = isImp ? 'внос' : 'износ';
-        const avgP  = ctryMwh[f.key] > 0 ? ctryEur[f.key] / ctryMwh[f.key] : NaN;
-        const eurVal = ctryEur[f.key] / 1e6;  // MWh*EUR → млн.€
         const arrowSpan = `<span style="color:${isImp?'#cc2200':'#1a8a1a'}">${arrow}</span>`;
-        const mainVal = useEur
-          ? `${arrowSpan} ${Math.abs(eurVal).toFixed(2)}`
-          : `${arrowSpan} ${Math.abs(gwh).toFixed(1)}`;
-        const sub = useEur
-          ? (Math.abs(gwh) > 0.01 ? `<div class="stat-unit">${Math.abs(gwh).toFixed(1)} GWh ${label}</div>` : '')
-          : (isFinite(avgP) ? `<div class="stat-unit">@ ${avgP.toFixed(0)} €/MWh</div>` : '');
         return `<div class="balance-item" style="border-top:3px solid ${f.color};min-width:90px;">
           <div class="stat-label">${f.label}</div>
-          <div class="stat-val">${mainVal}</div>
-          <div class="stat-unit">${unit} ${label}</div>
-          ${sub}
+          <div class="stat-val">${arrowSpan} ${Math.abs(gwh).toFixed(1)}</div>
+          <div class="stat-unit">GWh ${label}</div>
         </div>`;
       }).join('')
     + '</div>';
@@ -1949,35 +1930,24 @@ function drawFlowsTimeline(binned, pd) {
   const pts = binned;
   const xs  = pts.map(p => toSofiaStr(p.ts));
 
-  function mwToEur(mw, p) {
-    if (!flowsEurMode || mw == null || isNaN(mw)) return mw;
-    const pr = getPriceAt(pd, p.ts);
-    return isFinite(pr) ? Math.round(mw * pr) : null;
-  }
-  const unit = flowsEurMode ? '€/h' : 'MW';
-  const htFmt = flowsEurMode
-    ? lbl => `${lbl}: %{y:,.0f} €/h<extra></extra>`
-    : lbl => `${lbl}: %{y:.0f} MW<extra></extra>`;
-
   const traces = FLOW_CFG.map(f => ({
-    x: xs, y: pts.map(p => { const v = isNaN(p[f.key])?null:p[f.key]||0; return mwToEur(v,p)??v; }),
+    x: xs, y: pts.map(p => isNaN(p[f.key])?null:p[f.key]||0),
     name: f.label, line: { color: f.color, width: 1.5 },
-    hovertemplate: htFmt(f.label),
+    hovertemplate: `${f.label}: %{y:.0f} MW<extra></extra>`,
   }));
-  const netRaw = pts.map(p=>isNaN(p['net_import_mw'])?null:p['net_import_mw']||0);
   traces.push({
-    x: xs, y: pts.map((p,i) => { const v=netRaw[i]; return v===null?null:(mwToEur(v,p)??v); }),
+    x: xs, y: pts.map(p=>isNaN(p['net_import_mw'])?null:p['net_import_mw']||0),
     name: 'Нетна позиция', fill: 'tozeroy',
     fillcolor: 'rgba(80,80,80,0.15)',
     line: { color: '#1a2233', width: 2.5 },
-    hovertemplate: htFmt('Нетна позиция'),
+    hovertemplate: 'Нетна позиция: %{y:.0f} MW<extra></extra>',
   });
 
   Plotly.react('chart-flows-ts', traces, {
     ...LO,
     uirevision: 'flows',
     xaxis: { ...LO.xaxis, type: 'date', title: 'Час', fixedrange: window.innerWidth < 640 },
-    yaxis: { ...LO.yaxis, title: `${unit} (+ внос / − износ)`, fixedrange: window.innerWidth < 640 },
+    yaxis: { ...LO.yaxis, title: `MW (+ внос / − износ)`, fixedrange: window.innerWidth < 640 },
     legend: { ...LO.legend, orientation: 'h', y: window.innerWidth < 640 ? -0.28 : -0.2 },
     margin: { t: 8, b: window.innerWidth < 640 ? 120 : 90, l: 58, r: 10 },
     shapes: [{ type:'line', xref:'paper', x0:0, x1:1, y0:0, y1:0,
