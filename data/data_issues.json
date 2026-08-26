@@ -1,5 +1,23 @@
 [
   {
+    "id": "2026-08-26-solar-load-spike-predawn",
+    "date": "2026-08-26",
+    "fields": ["ФЕЦ", "Товар на РБ", "load_mw"],
+    "window_utc": {
+      "start": "2026-08-26T03:00:04Z",
+      "end": "2026-08-26T06:35:03Z"
+    },
+    "records_affected": 42,
+    "description": "Fourth occurrence of the same failure mode (1st: 2026-08-18 afternoon, 2nd: 2026-08-19 predawn, 3rd: 2026-08-25 afternoon). Solar jumped instantly from 0 to 2084 MW at 03:05:04Z (still dark -- 06:05 Sofia local, real sunrise the day before didn't reach that level until ~06:20) then plateaued/drifted 2084-2812 MW instead of a real sunrise ramp; load jumped from 3274 to 5410 MW (1.65x) at the same instant. Both dropped toward normal-looking values at 2026-08-26T06:35:03Z.",
+    "observed_peak_mw": {
+      "ФЕЦ": 2812.0,
+      "Товар на РБ": 5587.0
+    },
+    "correction_method": "Same method as the prior three: interpolated from 2026-08-25's shape at matching times-of-day, per-field scale factors blended between boundary ratios (load 1.010x->0.974x, solar assumed 1.0x->0.664x -- yesterday's solar was ~0 at the start anchor so no meaningful start ratio to measure). load_mw synced alongside Товар на РБ. Original values preserved per-record under _raw_backup.",
+    "status": "fixed",
+    "note": "Recovery was less clean-cut than the prior three occurrences (no exact instant snap-back to a stable value -- 06:35-06:50 UTC values are plausible but not an obviously perfect match to the prior day, this was the closest reasonable boundary given data ends at 06:50 as of this fix). Worth a follow-up check once more of today's data has landed. Four occurrences now -- strongly recurring ESO-side pattern."
+  },
+  {
     "id": "2026-08-25-solar-load-spike-afternoon",
     "date": "2026-08-25",
     "fields": ["ФЕЦ", "Товар на РБ", "load_mw"],
