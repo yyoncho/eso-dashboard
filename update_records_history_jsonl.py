@@ -58,21 +58,39 @@ def intervals_h(records):
     return result
 
 
-def _hist_append(hist, date, val):
+def _hist_append(hist, date, val, ts=None):
+    """ts: the exact timestamp_utc the value was recorded at, for "momentum"
+    (instantaneous MW peak) metrics only -- lets records.html link straight to
+    that moment instead of just the day. Day-total metrics (GWh, %, hours)
+    have no single exact moment, so they pass ts=None and get no 't' key."""
     if hist and hist[-1]['d'] == date:
         hist[-1]['val'] = val
+        if ts:
+            hist[-1]['t'] = ts
     else:
-        hist.append({'d': date, 'val': val})
+        entry = {'d': date, 'val': val}
+        if ts:
+            entry['t'] = ts
+        hist.append(entry)
 
 
 def top10(all_vals):
-    """Dedupe by date (keep max), return top-10 ranked list."""
-    best = {}
-    for d, v in all_vals:
-        if d not in best or v > best[d]:
-            best[d] = v
-    ranked = sorted(best.items(), key=lambda x: x[1], reverse=True)[:10]
-    return [{'rank': i + 1, 'd': d, 'val': round(v, 3)} for i, (d, v) in enumerate(ranked)]
+    """Dedupe by date (keep max), return top-10 ranked list.
+    all_vals: (date, val) pairs, or (date, val, ts) triples for momentum
+    metrics -- the ts of the day's max value is carried through as 't'."""
+    best = {}  # date -> (val, ts)
+    for item in all_vals:
+        d, v, ts = item if len(item) == 3 else (*item, None)
+        if d not in best or v > best[d][0]:
+            best[d] = (v, ts)
+    ranked = sorted(best.items(), key=lambda x: x[1][0], reverse=True)[:10]
+    out = []
+    for i, (d, (v, ts)) in enumerate(ranked):
+        row = {'rank': i + 1, 'd': d, 'val': round(v, 3)}
+        if ts:
+            row['t'] = ts
+        out.append(row)
+    return out
 
 
 def get_baseline(existing, key, cutover=JSONL_START):
@@ -141,36 +159,37 @@ def main():
             load      = r.get('Товар на РБ') or 0.0
             re_mw     = sum(r.get(k) or 0.0 for k in JSONL_RE_KEYS) + dis
             export    = max(0.0, -(r.get('net_import_mw') or 0.0))
+            ts        = r.get('timestamp_utc')
 
             # Solar peak MW
-            sol_all.append((day, solar))
+            sol_all.append((day, solar, ts))
             if solar > sol_max:
                 sol_max = solar
-                _hist_append(sol_hist, day, round(solar, 1))
+                _hist_append(sol_hist, day, round(solar, 1), ts)
             day_sol_gwh += solar * ih / 1000
 
             # Export peak MW (tracked from JSONL only)
-            export_all.append((day, export))
+            export_all.append((day, export, ts))
             if export > export_max:
                 export_max = export
-                _hist_append(export_hist, day, round(export, 1))
+                _hist_append(export_hist, day, round(export, 1), ts)
 
             # Battery discharge (all JSONL)
-            batt_dis_all.append((day, dis))
+            batt_dis_all.append((day, dis, ts))
             if dis > batt_dis_max:
                 batt_dis_max = dis
-                _hist_append(batt_dis_hist, day, round(dis, 1))
+                _hist_append(batt_dis_hist, day, round(dis, 1), ts)
 
             # Battery charge + pumps (only since PUMPS_START)
             if day >= PUMPS_START:
-                batt_chg_all.append((day, chg))
-                total_chg_all.append((day, total_chg))
+                batt_chg_all.append((day, chg, ts))
+                total_chg_all.append((day, total_chg, ts))
                 if chg > batt_chg_max:
                     batt_chg_max = chg
-                    _hist_append(batt_chg_hist, day, round(chg, 1))
+                    _hist_append(batt_chg_hist, day, round(chg, 1), ts)
                 if total_chg > total_chg_max:
                     total_chg_max = total_chg
-                    _hist_append(total_chg_hist, day, round(total_chg, 1))
+                    _hist_append(total_chg_hist, day, round(total_chg, 1), ts)
                 day_chg_gwh   += chg   * ih / 1000
                 day_dis_gwh   += dis   * ih / 1000
                 day_pumps_gwh += pumps * ih / 1000

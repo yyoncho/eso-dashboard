@@ -377,7 +377,7 @@ function renderDetail(key) {
   document.getElementById('kpi-prev-unit').textContent = r.unit;
   document.getElementById('kpi-prev-date').textContent = prev ? prev.d : '';
 
-  function wireKpiBox(boxId, hintId, date) {
+  function wireKpiBox(boxId, hintId, date, snapTs) {
     const box = document.getElementById(boxId);
     const hint = document.getElementById(hintId);
     box.onclick = null;
@@ -385,7 +385,7 @@ function renderDetail(key) {
     if (date >= JSONL_START) {
       box.classList.add('clickable');
       hint.textContent = 'Виж ден →';
-      box.onclick = () => { window.location.href = 'index.html#day=' + date; };
+      box.onclick = () => { window.location.href = indexDayHref(date, snapTs); };
     } else if (_hist._days && _hist._days[date]) {
       box.classList.add('clickable');
       hint.textContent = 'Виж ден →';
@@ -395,8 +395,8 @@ function renderDetail(key) {
       hint.textContent = '';
     }
   }
-  wireKpiBox('kpi-cur-box',  'kpi-cur-hint',  cur  ? cur.d  : null);
-  wireKpiBox('kpi-prev-box', 'kpi-prev-hint', prev ? prev.d : null);
+  wireKpiBox('kpi-cur-box',  'kpi-cur-hint',  cur  ? cur.d  : null, cur  ? cur.t  : null);
+  wireKpiBox('kpi-prev-box', 'kpi-prev-hint', prev ? prev.d : null, prev ? prev.t : null);
 
   renderChart(key, r, h);
   renderTop10(key, r, h.top10 || []);
@@ -491,6 +491,7 @@ function renderChart(key, r, h) {
     },
     {
       x: xs, y: ys,
+      customdata: hist.map(p => p.t || null),
       mode: 'markers',
       marker: { color: '#2d6bbf', size: 9, line: { color: '#fff', width: 2 } },
       hovertemplate: `<b>%{x}</b><br>${r.label}: <b>%{y}</b> ${r.unit}<extra></extra>`,
@@ -524,8 +525,9 @@ function renderChart(key, r, h) {
   el.on('plotly_click', data => {
     const pt = data.points[0];
     const date = pt.x.slice(0, 10);
+    const snapTs = pt.customdata || null;
     if (date >= JSONL_START) {
-      window.location.href = 'index.html#day=' + date;
+      window.location.href = indexDayHref(date, snapTs);
     } else if (_hist._days && _hist._days[date]) {
       showDayModal(date);
     }
@@ -534,10 +536,19 @@ function renderChart(key, r, h) {
 
 // ── Top-10 table ──────────────────────────────────────────────────────────────
 
-function dayLinkHtml(date, showDate = false) {
+// Momentum (instantaneous MW peak) metrics carry an exact snap_ts for the day's
+// max reading -- link straight to that moment. Day-total metrics (GWh, %, hours)
+// have no single exact moment, so snapTs is simply absent for those.
+function indexDayHref(date, snapTs) {
+  const p = new URLSearchParams({ day: date });
+  if (snapTs) p.set('snap', snapTs);
+  return 'index.html#' + p.toString();
+}
+
+function dayLinkHtml(date, showDate = false, snapTs = null) {
   const dateStr = showDate ? `${date} · ` : '';
   if (date >= JSONL_START) {
-    return `${dateStr}<a class="view-day-link" href="index.html#day=${date}">Виж ден →</a>`;
+    return `${dateStr}<a class="view-day-link" href="${indexDayHref(date, snapTs)}">Виж ден →</a>`;
   }
   if (_hist._days && _hist._days[date]) {
     return `${dateStr}<a class="view-day-link" href="#" data-day="${date}">Виж ден →</a>`;
@@ -559,7 +570,7 @@ function renderTop10(key, r, top10) {
       <td><span class="rank-badge ${badgeClass}">${row.rank}</span></td>
       <td>${row.d}</td>
       <td class="val-cell">${fmtVal(row.val, r.unit)} <span style="color:#aab0c0;font-weight:400;font-size:0.72rem">${r.unit}</span></td>
-      <td>${dayLinkHtml(row.d)}</td>`;
+      <td>${dayLinkHtml(row.d, false, row.t || null)}</td>`;
     body.appendChild(tr);
   }
   // Delegate click for historical day links
