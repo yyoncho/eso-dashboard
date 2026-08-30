@@ -190,11 +190,13 @@ def main():
                 export_max = export
                 _hist_append(export_hist, day, round(export, 1), ts)
 
-            # Peak consumption (load + battery charging draw)
+            # Peak consumption: total draw from the grid = demand (load) +
+            # everything charging off it (battery storage + pumped-hydro pumps).
             load_mw = r.get('load_mw') or 0.0
             batt_charge_mw = r.get('batt_charge_mw') or 0.0
+            pumps_mw = r.get('pumps_mw') or 0.0
             gen_total_mw = r.get('gen_total_mw') or 0.0
-            peak_cons = load_mw + batt_charge_mw
+            peak_cons = load_mw + batt_charge_mw + pumps_mw
             peak_cons_all.append((day, peak_cons, ts))
             if peak_cons > peak_cons_max:
                 peak_cons_max = peak_cons

@@ -110,8 +110,9 @@ def main():
 
             load_mw = r.get('load_mw') or 0
             batt_charge_mw = r.get('batt_charge_mw') or 0
+            pumps_mw = r.get('pumps_mw') or 0
             gen_total_mw = r.get('gen_total_mw') or 0
-            peak_cons = load_mw + batt_charge_mw
+            peak_cons = load_mw + batt_charge_mw + pumps_mw
             if peak_cons > rec['peak_consumption']['val']:
                 rec['peak_consumption'].update(val=round(peak_cons, 1), date=day, snap_ts=ts)
 

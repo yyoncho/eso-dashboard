@@ -2110,7 +2110,7 @@ function updateRecordAlerts(allRecords, binned, dateStr) {
     totalChgPeak = Math.max(totalChgPeak, Math.max(0, (r['batt_charge_mw'] || 0) + (r['pumps_mw'] || 0)));
     disPeak      = Math.max(disPeak,      Math.max(0, r['batt_discharge_mw'] || 0));
     exportPeak   = Math.max(exportPeak,   Math.max(0, -(r['net_import_mw'] || 0)));
-    peakConsumption = Math.max(peakConsumption, (r['load_mw'] || 0) + Math.max(0, r['batt_charge_mw'] || 0));
+    peakConsumption = Math.max(peakConsumption, (r['load_mw'] || 0) + Math.max(0, r['batt_charge_mw'] || 0) + Math.max(0, r['pumps_mw'] || 0));
     const bgHour = parseInt(toSofiaStr(toUtcMs(r)).slice(11, 13), 10);
     if (bgHour >= 8 && bgHour < 18) peakGenDaylight = Math.max(peakGenDaylight, r['gen_total_mw'] || 0);
     if (bgHour >= 18 && bgHour < 22) peakGenEvening = Math.max(peakGenEvening, r['gen_total_mw'] || 0);
