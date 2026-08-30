@@ -84,11 +84,11 @@
     "snap_ts": null
   },
   "peak_consumption": {
-    "val": 8540.2,
+    "val": 8824.4,
     "label": "Пиково потребление",
     "unit": "MW",
-    "date": "2026-08-24",
-    "snap_ts": "2026-08-24T10:40:03Z"
+    "date": "2026-08-12",
+    "snap_ts": "2026-08-12T10:55:03Z"
   },
   "peak_gen_daylight": {
     "val": 8520.5,
