@@ -66,6 +66,7 @@ header a:hover { color: #fff; }
 .btn.active-price { background: #1a6fbf; color: #fff; border-color: #1a6fbf; }
 .btn.active-solar { background: #c87800; color: #fff; border-color: #c87800; }
 .btn.active-coal  { background: #555;    color: #fff; border-color: #555; }
+.btn.active-cmp   { background: #2d6bbf; color: #fff; border-color: #2d6bbf; }
 
 
 .kpi-row {
@@ -121,6 +122,9 @@ header a:hover { color: #fff; }
         <button class="btn active-price" id="btn-price" onclick="toggle('price')">💶 Цена</button>
         <button class="btn active-solar" id="btn-solar" onclick="toggle('solar')">☀️ Слънчева</button>
         <button class="btn active-coal"  id="btn-coal"  onclick="toggle('coal')">🏭 Въглища</button>
+        <span style="width:1px;background:#dde4f0;align-self:stretch;margin:0 4px;"></span>
+        <button class="btn" id="btn-cmp-1" onclick="setCompareYears(1)">Промяна за 1г.</button>
+        <button class="btn active-cmp" id="btn-cmp-3" onclick="setCompareYears(3)">Промяна за 3г.</button>
       </div>
     </div>
     <div class="panel-body">
@@ -169,12 +173,23 @@ const MW_TO_TWH = 8760 / 1e6;
 
 const vis = { price: true, solar: true, coal: true };
 let plotData = null;
+let compareYears = 3;
 
 function toggle(key) {
   vis[key] = !vis[key];
   const btn = document.getElementById('btn-' + key);
   btn.className = 'btn' + (vis[key] ? ' active-' + key : '');
   if (plotData) render();
+}
+
+function setCompareYears(n) {
+  compareYears = n;
+  document.getElementById('btn-cmp-1').className = 'btn' + (n === 1 ? ' active-cmp' : '');
+  document.getElementById('btn-cmp-3').className = 'btn' + (n === 3 ? ' active-cmp' : '');
+  if (plotData) {
+    updatePriceKpi();
+    setKpis(plotData.days, mwToTwh(plotData.maSolar), mwToTwh(plotData.maCoal));
+  }
 }
 
 function rollingMean(arr, W) {
@@ -207,19 +222,24 @@ function kpiChgEl(elId, now, then, unit, decimals, lowerIsBetter) {
   const pct = (delta / then * 100).toFixed(0);
   const sign = delta >= 0 ? '+' : '';
   const up = delta > 0;
-  el.textContent = `${sign}${delta.toFixed(decimals)} ${unit} (${sign}${pct}%) за 3 год.`;
+  const yrLabel = compareYears === 1 ? '1 год.' : `${compareYears} год.`;
+  el.textContent = `${sign}${delta.toFixed(decimals)} ${unit} (${sign}${pct}%) за ${yrLabel}`;
   el.className = 'kpi-chg ' + ((lowerIsBetter ? !up : up) ? 'up' : 'down');
+}
+
+function refIndexYearsAgo(days, lastIdx) {
+  const refDate = new Date(days[lastIdx]);
+  refDate.setFullYear(refDate.getFullYear() - compareYears);
+  return idxAtDate(days, refDate.toISOString().slice(0, 10));
 }
 
 function updatePriceKpi() {
   const { days, maPrice } = plotData;
   const last = lastNonNull(maPrice);
   if (!last) return;
-  const refDate = new Date(days[last.idx]);
-  refDate.setFullYear(refDate.getFullYear() - 3);
-  const i3 = idxAtDate(days, refDate.toISOString().slice(0, 10));
+  const iRef = refIndexYearsAgo(days, last.idx);
   const now = last.val;
-  const then = i3 >= 0 ? maPrice[i3] : null;
+  const then = iRef >= 0 ? maPrice[iRef] : null;
   document.getElementById('kv-price').textContent = now != null ? now.toFixed(1) + ' EUR/MWh' : '—';
   kpiChgEl('kc-price', now, then, 'EUR/MWh', 1, true);
 }
@@ -228,17 +248,15 @@ function setKpis(days, maSolar, maCoal) {
   const last = lastNonNull(maSolar) || lastNonNull(maCoal);
   if (!last) return;
 
-  const refDate = new Date(days[last.idx]);
-  refDate.setFullYear(refDate.getFullYear() - 3);
-  const i3 = idxAtDate(days, refDate.toISOString().slice(0, 10));
+  const iRef = refIndexYearsAgo(days, last.idx);
 
-  const sNow = lastNonNull(maSolar)?.val; const s3 = i3 >= 0 ? maSolar[i3] : null;
-  const cNow = lastNonNull(maCoal)?.val;  const c3 = i3 >= 0 ? maCoal[i3]  : null;
+  const sNow = lastNonNull(maSolar)?.val; const sRef = iRef >= 0 ? maSolar[iRef] : null;
+  const cNow = lastNonNull(maCoal)?.val;  const cRef = iRef >= 0 ? maCoal[iRef]  : null;
 
   document.getElementById('kv-solar').textContent = sNow != null ? sNow.toFixed(2) + ' TWh/год.' : '—';
   document.getElementById('kv-coal').textContent  = cNow != null ? cNow.toFixed(2) + ' TWh/год.' : '—';
-  kpiChgEl('kc-solar', sNow, s3, 'TWh/год.', 2, false);
-  kpiChgEl('kc-coal',  cNow, c3, 'TWh/год.', 2, true);
+  kpiChgEl('kc-solar', sNow, sRef, 'TWh/год.', 2, false);
+  kpiChgEl('kc-coal',  cNow, cRef, 'TWh/год.', 2, true);
 
   document.getElementById('kpi-row').style.display = '';
 }
