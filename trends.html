@@ -67,7 +67,7 @@ header a:hover { color: #fff; }
 .btn.active-solar { background: #c87800; color: #fff; border-color: #c87800; }
 .btn.active-coal  { background: #555;    color: #fff; border-color: #555; }
 .btn.active-cmp   { background: #2d6bbf; color: #fff; border-color: #2d6bbf; }
-.btn.active-neg   { background: #7b3fa0; color: #fff; border-color: #7b3fa0; }
+.btn.active-low   { background: #7b3fa0; color: #fff; border-color: #7b3fa0; }
 .btn.active-high  { background: #c0392b; color: #fff; border-color: #c0392b; }
 
 
@@ -124,7 +124,7 @@ header a:hover { color: #fff; }
         <button class="btn active-price" id="btn-price" onclick="toggle('price')">💶 Цена</button>
         <button class="btn active-solar" id="btn-solar" onclick="toggle('solar')">☀️ Слънчева</button>
         <button class="btn active-coal"  id="btn-coal"  onclick="toggle('coal')">🏭 Въглища</button>
-        <button class="btn" id="btn-negHours" onclick="toggle('negHours')">🟣 Отриц. часове/год.</button>
+        <button class="btn" id="btn-lowHours" onclick="toggle('lowHours')">🟣 Цена &lt;10 EUR</button>
         <button class="btn" id="btn-highHours" onclick="toggle('highHours')">🔴 Часове &gt;200 EUR/год.</button>
         <span style="width:1px;background:#dde4f0;align-self:stretch;margin:0 4px;"></span>
         <button class="btn" id="btn-cmp-1" onclick="setCompareMode(1)">Промяна за 1г.</button>
@@ -161,7 +161,7 @@ header a:hover { color: #fff; }
         <br><b>Слънчева:</b> ЕСО СКАДА (ФЕЦ) + ENTSOE.
         <br><b>Въглища:</b> Кондензационни ТЕЦ + Топлофикационни ТЕЦ + Заводски ТЕЦ (ЕСО СКАДА) + ENTSOE.
         <br>Генерацията е в <b>TWh/год.</b> (годишен еквивалент). Последните ~182 дни нямат пълен 365д прозорец.
-        <br><b>Часове/год.:</b> от Ember почасови цени — за всяка година, брой часове с цена под 0 EUR/MWh (лилаво) и брой часове с цена над 200 EUR/MWh (червено), групирани по 10-EUR интервали. Текущата година е частична (точката е на последната налична дата).
+        <br><b>Часове/год.:</b> от Ember почасови цени — 365-дневна плъзгаща средна на дневния брой часове с цена &lt;10 EUR/MWh (лилаво) и с цена ≥200 EUR/MWh (червено), приведена към годишна база (× 365).
       </div>
     </div>
   </div>
@@ -181,30 +181,78 @@ const BUCKETS_URL = (location.hostname === 'localhost' || location.protocol === 
 
 // Threshold (EUR/MWh) above which an hour counts toward the "high-price hours" line.
 const HIGH_PRICE_THRESHOLD = 200;
+// Threshold (EUR/MWh) below which an hour counts toward the "low-price hours" line.
+const LOW_PRICE_THRESHOLD = 10;
 
 const MW_TO_TWH = 8760 / 1e6;
+// low_hours/high_hours from price_hours_buckets.json are daily counts; rollingMean()
+// over W=365 gives the trailing-year average hours/day, so multiply by 365 to
+// annualize it into hours/year -- same idea as MW_TO_TWH for the generation lines.
+const DAILY_TO_ANNUAL_HOURS = 365;
 
-const vis = { price: true, solar: true, coal: true, negHours: false, highHours: false };
+const DEFAULT_VIS = { price: true, solar: true, coal: true, lowHours: false, highHours: false };
+const vis = { ...DEFAULT_VIS };
 let plotData = null;
 let compareMode = 3; // 1, 3, or 'ytd'
 
 // Maps vis-key -> CSS active-* suffix, for keys whose button class doesn't
-// match the key name 1:1 (e.g. 'negHours' button uses '.active-neg').
-const ACTIVE_CLASS = { negHours: 'neg', highHours: 'high' };
+// match the key name 1:1 (e.g. 'lowHours' button uses '.active-low').
+const ACTIVE_CLASS = { lowHours: 'low', highHours: 'high' };
+
+// Short, URL-friendly ids for the "show" hash param -- distinct from the
+// internal vis-keys so the shareable link reads naturally, e.g.
+// #show=price,lt10eur&cmp=3
+const SHOW_PARAM = { price: 'price', solar: 'solar', coal: 'coal', lowHours: 'lt10eur', highHours: 'gt200eur' };
+
+// ── URL hash state (mirrors index.html's readHash()/writeHash() convention) ──
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  return { show: p.get('show'), cmp: p.get('cmp') };
+}
+
+function writeHash() {
+  const p = new URLSearchParams();
+  const activeParams = Object.keys(vis).filter(k => vis[k]).map(k => SHOW_PARAM[k]);
+  p.set('show', activeParams.join(','));
+  p.set('cmp', String(compareMode));
+  history.replaceState(null, '', '#' + p.toString());
+}
+
+// Applies vis/compareMode (already set from readHash() or defaults) to the
+// button classNames -- used both on initial load and after any toggle.
+function syncButtonClasses() {
+  for (const key of Object.keys(vis)) {
+    const suffix = ACTIVE_CLASS[key] || key;
+    document.getElementById('btn-' + key).className = 'btn' + (vis[key] ? ' active-' + suffix : '');
+  }
+  document.getElementById('btn-cmp-1').className   = 'btn' + (compareMode === 1   ? ' active-cmp' : '');
+  document.getElementById('btn-cmp-3').className   = 'btn' + (compareMode === 3   ? ' active-cmp' : '');
+  document.getElementById('btn-cmp-ytd').className = 'btn' + (compareMode === 'ytd' ? ' active-cmp' : '');
+}
+
+function applyHashState() {
+  const { show, cmp } = readHash();
+  if (show !== null) {
+    const activeSet = new Set(show.split(',').filter(Boolean));
+    for (const key of Object.keys(vis)) vis[key] = activeSet.has(SHOW_PARAM[key]);
+  }
+  if (cmp !== null) {
+    compareMode = cmp === 'ytd' ? 'ytd' : (Number(cmp) === 1 ? 1 : 3);
+  }
+  syncButtonClasses();
+}
 
 function toggle(key) {
   vis[key] = !vis[key];
-  const btn = document.getElementById('btn-' + key);
-  const suffix = ACTIVE_CLASS[key] || key;
-  btn.className = 'btn' + (vis[key] ? ' active-' + suffix : '');
+  syncButtonClasses();
+  writeHash();
   if (plotData) render();
 }
 
 function setCompareMode(mode) {
   compareMode = mode;
-  document.getElementById('btn-cmp-1').className = 'btn' + (mode === 1 ? ' active-cmp' : '');
-  document.getElementById('btn-cmp-3').className = 'btn' + (mode === 3 ? ' active-cmp' : '');
-  document.getElementById('btn-cmp-ytd').className = 'btn' + (mode === 'ytd' ? ' active-cmp' : '');
+  syncButtonClasses();
+  writeHash();
   if (plotData) {
     updatePriceKpi();
     setKpis(plotData.days, mwToTwh(plotData.maSolar), mwToTwh(plotData.maCoal));
@@ -289,19 +337,19 @@ function mwToTwh(arr) {
 }
 
 function render() {
-  const { days, maPrice, maSolar, maCoal, yearX, yearNeg, yearHigh } = plotData;
+  const { days, maPrice, maSolar, maCoal, hoursDays, maLowHoursYr, maHighHoursYr } = plotData;
   const maSolarTwh = mwToTwh(maSolar);
   const maCoalTwh  = mwToTwh(maCoal);
 
   const traces = [];
-  const C = { price: '#1a6fbf', solar: '#c87800', coal: '#666', neg: '#7b3fa0', high: '#c0392b' };
-  const needsHoursAxis = vis.negHours || vis.highHours;
+  const C = { price: '#1a6fbf', solar: '#c87800', coal: '#666', low: '#7b3fa0', high: '#c0392b' };
+  const needsHoursAxis = vis.lowHours || vis.highHours;
 
   if (vis.price) traces.push({ x: days, y: maPrice,    name: 'Цена 365д MA (EUR/MWh)',         yaxis:'y1', mode:'lines', line:{color:C.price, width:3} });
   if (vis.solar) traces.push({ x: days, y: maSolarTwh,    name: 'Слънчева 365д MA (TWh/год.)',yaxis:'y2', mode:'lines', line:{color:C.solar, width:3} });
   if (vis.coal)  traces.push({ x: days, y: maCoalTwh,     name: 'Въглища 365д MA (TWh/год.)', yaxis:'y2', mode:'lines', line:{color:C.coal,  width:3, dash:'dot'} });
-  if (vis.negHours && yearX)  traces.push({ x: yearX, y: yearNeg,  name: 'Часове с отрицателна цена (бр./год.)', yaxis:'y3', mode:'lines+markers', line:{color:C.neg, width:2.5}, marker:{size:6} });
-  if (vis.highHours && yearX) traces.push({ x: yearX, y: yearHigh, name: `Часове с цена >${HIGH_PRICE_THRESHOLD} EUR/MWh (бр./год.)`, yaxis:'y3', mode:'lines+markers', line:{color:C.high, width:2.5, dash:'dash'}, marker:{size:6} });
+  if (vis.lowHours && hoursDays)  traces.push({ x: hoursDays, y: maLowHoursYr,  name: `Часове с цена <${LOW_PRICE_THRESHOLD} EUR/MWh 365д MA (бр./год.)`, yaxis:'y3', mode:'lines', line:{color:C.low, width:2.5} });
+  if (vis.highHours && hoursDays) traces.push({ x: hoursDays, y: maHighHoursYr, name: `Часове с цена ≥${HIGH_PRICE_THRESHOLD} EUR/MWh 365д MA (бр./год.)`, yaxis:'y3', mode:'lines', line:{color:C.high, width:2.5, dash:'dot'} });
 
   const layout = {
     dragmode: false,
@@ -335,32 +383,6 @@ function render() {
   Plotly.react('chart', traces, layout, { responsive: true, displayModeBar: false });
 }
 
-// For each year in the buckets dataset, sum hours in buckets below 0 EUR/MWh
-// (negative-price hours) and at/above HIGH_PRICE_THRESHOLD (high-price hours).
-// Anchors each year's point at Dec 31 for completed years, or at the last
-// available daily date for the current (partial) year, so the line sits on
-// the same date axis as the 365d-MA traces.
-function buildYearlySeries(bucketsData, days) {
-  const { years, bucket_lo, hours, partial_year } = bucketsData;
-  const yearX = [], yearNeg = [], yearHigh = [];
-  for (const year of years) {
-    const counts = hours[String(year)];
-    let neg = 0, high = 0;
-    for (let i = 0; i < bucket_lo.length; i++) {
-      if (bucket_lo[i] < 0) neg += counts[i];
-      else if (bucket_lo[i] >= HIGH_PRICE_THRESHOLD) high += counts[i];
-    }
-    let x = `${year}-12-31`;
-    if (year === partial_year) {
-      for (let i = days.length - 1; i >= 0; i--) {
-        if (days[i].startsWith(String(year))) { x = days[i]; break; }
-      }
-    }
-    yearX.push(x); yearNeg.push(neg); yearHigh.push(high);
-  }
-  return { yearX, yearNeg, yearHigh };
-}
-
 async function main() {
   const [data, bucketsData] = await Promise.all([
     fetch(DATA_URL).then(r => r.json()),
@@ -370,13 +392,24 @@ async function main() {
   const maSolar = rollingMean(data.solar, W);
   const maCoal  = rollingMean(data.coal,  W);
 
-  const yearly = bucketsData ? buildYearlySeries(bucketsData, data.days) : {};
+  // low_hours/high_hours are daily hour counts (0-24); rollingMean() gives the
+  // same 365d trailing average treatment used for price/solar/coal, then we
+  // annualize (avg hours/day * 365) so the line reads as "hours/year" like the
+  // static KPI framing elsewhere on this page.
+  let hoursDays = null, maLowHoursYr = null, maHighHoursYr = null;
+  if (bucketsData) {
+    hoursDays = bucketsData.days;
+    const maLow  = rollingMean(bucketsData.low_hours,  W);
+    const maHigh = rollingMean(bucketsData.high_hours, W);
+    maLowHoursYr  = maLow.map(v  => v != null ? +(v * DAILY_TO_ANNUAL_HOURS).toFixed(0) : null);
+    maHighHoursYr = maHigh.map(v => v != null ? +(v * DAILY_TO_ANNUAL_HOURS).toFixed(0) : null);
+  }
 
   plotData = {
     days: data.days,
     maPrice: rollingMean(data.price, W),
     maSolar, maCoal,
-    yearX: yearly.yearX, yearNeg: yearly.yearNeg, yearHigh: yearly.yearHigh,
+    hoursDays, maLowHoursYr, maHighHoursYr,
   };
 
   document.getElementById('status').style.display = 'none';
@@ -386,6 +419,16 @@ async function main() {
     maCoal.map(v  => v != null ? +(v * MW_TO_TWH).toFixed(4) : null));
   render();
 }
+
+applyHashState(); // parse #show=.../cmp=... (if present) before first render
+window.addEventListener('hashchange', () => {
+  applyHashState();
+  if (plotData) {
+    updatePriceKpi();
+    setKpis(plotData.days, mwToTwh(plotData.maSolar), mwToTwh(plotData.maCoal));
+    render();
+  }
+});
 
 main();
 </script>
