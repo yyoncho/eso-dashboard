@@ -64,6 +64,9 @@ def main():
         'daily_re':    {'val': 0.0, 'label': 'Дневен дял ВЕИ',             'unit': '%',   'date': None, 'snap_ts': None},
         're_gwh_day':  {'val': 0.0, 'label': 'ВЕИ енергия за ден',         'unit': 'GWh', 'date': None, 'snap_ts': None},
         're_hours':    {'val': 0.0, 'label': 'Най-дълго 100% ВЕИ',         'unit': 'ч',   'date': None, 'snap_ts': None},
+        'peak_consumption':  {'val': 0.0, 'label': 'Пиково потребление',                       'unit': 'MW', 'date': None, 'snap_ts': None},
+        'peak_gen_daylight': {'val': 0.0, 'label': 'Пиково производство (дневно, 08-18ч)',      'unit': 'MW', 'date': None, 'snap_ts': None},
+        'peak_gen_evening':  {'val': 0.0, 'label': 'Пиково производство (вечерен пик, 18-22ч)', 'unit': 'MW', 'date': None, 'snap_ts': None},
     }
 
     for f in sorted(DATA_DIR.glob('2026-*.jsonl')):
@@ -104,6 +107,20 @@ def main():
                 rec['batt_dis'].update(val=round(dis, 1), date=day, snap_ts=ts)
             if exp > rec['export']['val']:
                 rec['export'].update(val=round(exp, 1), date=day, snap_ts=ts)
+
+            load_mw = r.get('load_mw') or 0
+            batt_charge_mw = r.get('batt_charge_mw') or 0
+            gen_total_mw = r.get('gen_total_mw') or 0
+            peak_cons = load_mw + batt_charge_mw
+            if peak_cons > rec['peak_consumption']['val']:
+                rec['peak_consumption'].update(val=round(peak_cons, 1), date=day, snap_ts=ts)
+
+            snap_dt = snap_ts_to_utc(r)
+            bg_hour = snap_dt.astimezone(BG_TZ).hour if snap_dt else None
+            if bg_hour is not None and 8 <= bg_hour < 18 and gen_total_mw > rec['peak_gen_daylight']['val']:
+                rec['peak_gen_daylight'].update(val=round(gen_total_mw, 1), date=day, snap_ts=ts)
+            if bg_hour is not None and 18 <= bg_hour < 22 and gen_total_mw > rec['peak_gen_evening']['val']:
+                rec['peak_gen_evening'].update(val=round(gen_total_mw, 1), date=day, snap_ts=ts)
 
             if day >= PUMPS_START:
                 day_chg_gwh += chg * ih / 1000

@@ -298,6 +298,7 @@ const ORDER = [
   'solar', 'solar_gwh', 'export',
   'batt_chg', 'total_chg', 'chg_gwh_day',
   'batt_dis', 'dis_gwh_day',
+  'peak_consumption', 'peak_gen_daylight', 'peak_gen_evening',
   'daily_re', 're_gwh_day', 're_hours',
   'pumps_gwh',
 ];
@@ -414,6 +415,9 @@ function renderDetail(key) {
     chg_gwh_day: 'Дневна заредена енергия. ЕСО SCADA данни от 3 юни 2026.',
     dis_gwh_day: 'Дневна разредена енергия. ЕСО SCADA данни от 3 юни 2026.',
     pumps_gwh:   'Дневна енергия на помпите. ЕСО SCADA данни от 3 юни 2026.',
+    peak_consumption:  'Товар на РБ + зареждане на ССЕЕ. ЕСО SCADA 5-мин данни от май 2026.',
+    peak_gen_daylight: 'Максимално общо производство в дневния прозорец 08:00–18:00 ч. (българско време). ЕСО SCADA 5-мин данни от май 2026.',
+    peak_gen_evening:  'Максимално общо производство във вечерния пиков прозорец 18:00–22:00 ч. (българско време). ЕСО SCADA 5-мин данни от май 2026.',
   };
   document.getElementById('data-note').textContent = notes[key] || '';
 }

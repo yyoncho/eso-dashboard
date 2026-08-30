@@ -109,6 +109,16 @@ def main():
 
     existing = json.loads(OUT.read_text())
 
+    # New JSONL-only metrics have no pre-JSONL baseline; seed their metadata
+    # if this is the first run after adding them.
+    NEW_METRICS_META = {
+        'peak_consumption':  {'label': 'Пиково потребление',                          'unit': 'MW', 'since': JSONL_START},
+        'peak_gen_daylight': {'label': 'Пиково производство (дневно, 08-18ч)',         'unit': 'MW', 'since': JSONL_START},
+        'peak_gen_evening':  {'label': 'Пиково производство (вечерен пик, 18-22ч)',    'unit': 'MW', 'since': JSONL_START},
+    }
+    for k, meta in NEW_METRICS_META.items():
+        existing.setdefault(k, dict(meta))
+
     # ── Baseline (pre-JSONL) ──────────────────────────────────────────────────
     sol_hist,       sol_max,       sol_pool       = get_baseline(existing, 'solar')
     sol_gwh_hist,   sol_gwh_max,   sol_gwh_pool   = get_baseline(existing, 'solar_gwh')
@@ -122,6 +132,9 @@ def main():
     daily_re_hist,  daily_re_max,  daily_re_pool  = get_baseline(existing, 'daily_re')
     re_gwh_hist,    re_gwh_max,    re_gwh_pool    = get_baseline(existing, 're_gwh_day')
     re_hours_hist,  re_hours_max,  re_hours_pool  = get_baseline(existing, 're_hours')
+    peak_cons_hist,     peak_cons_max,     peak_cons_pool     = get_baseline(existing, 'peak_consumption')
+    peak_gen_day_hist,  peak_gen_day_max,  peak_gen_day_pool  = get_baseline(existing, 'peak_gen_daylight')
+    peak_gen_eve_hist,  peak_gen_eve_max,  peak_gen_eve_pool  = get_baseline(existing, 'peak_gen_evening')
 
     sol_all       = list(sol_pool)
     sol_gwh_all   = list(sol_gwh_pool)
@@ -135,6 +148,9 @@ def main():
     daily_re_all  = list(daily_re_pool)
     re_gwh_all    = list(re_gwh_pool)
     re_hours_all  = list(re_hours_pool)
+    peak_cons_all    = list(peak_cons_pool)
+    peak_gen_day_all = list(peak_gen_day_pool)
+    peak_gen_eve_all = list(peak_gen_eve_pool)
 
     days = defaultdict(lambda: {'re': 0.0, 'demand': 0.0, 're_covers_h': 0.0, 'n': 0})
 
@@ -173,6 +189,30 @@ def main():
             if export > export_max:
                 export_max = export
                 _hist_append(export_hist, day, round(export, 1), ts)
+
+            # Peak consumption (load + battery charging draw)
+            load_mw = r.get('load_mw') or 0.0
+            batt_charge_mw = r.get('batt_charge_mw') or 0.0
+            gen_total_mw = r.get('gen_total_mw') or 0.0
+            peak_cons = load_mw + batt_charge_mw
+            peak_cons_all.append((day, peak_cons, ts))
+            if peak_cons > peak_cons_max:
+                peak_cons_max = peak_cons
+                _hist_append(peak_cons_hist, day, round(peak_cons, 1), ts)
+
+            # Peak generation, daylight/evening windows (BG local hour)
+            snap_dt = snap_ts_to_utc(r)
+            bg_hour = snap_dt.astimezone(BG_TZ).hour if snap_dt else None
+            if bg_hour is not None and 8 <= bg_hour < 18:
+                peak_gen_day_all.append((day, gen_total_mw, ts))
+                if gen_total_mw > peak_gen_day_max:
+                    peak_gen_day_max = gen_total_mw
+                    _hist_append(peak_gen_day_hist, day, round(gen_total_mw, 1), ts)
+            if bg_hour is not None and 18 <= bg_hour < 22:
+                peak_gen_eve_all.append((day, gen_total_mw, ts))
+                if gen_total_mw > peak_gen_eve_max:
+                    peak_gen_eve_max = gen_total_mw
+                    _hist_append(peak_gen_eve_hist, day, round(gen_total_mw, 1), ts)
 
             # Battery discharge (all JSONL)
             batt_dis_all.append((day, dis, ts))
@@ -260,6 +300,9 @@ def main():
         'daily_re':    {'history': daily_re_hist,  'top10': top10(daily_re_all)},
         're_gwh_day':  {'history': re_gwh_hist,    'top10': top10(re_gwh_all)},
         're_hours':    {'history': re_hours_hist,  'top10': top10(re_hours_all)},
+        'peak_consumption':  {'history': peak_cons_hist,    'top10': top10(peak_cons_all)},
+        'peak_gen_daylight': {'history': peak_gen_day_hist, 'top10': top10(peak_gen_day_all)},
+        'peak_gen_evening':  {'history': peak_gen_eve_hist, 'top10': top10(peak_gen_eve_all)},
     }
     for key, val in updates.items():
         existing[key].update(val)
