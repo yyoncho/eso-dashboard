@@ -67,6 +67,8 @@ header a:hover { color: #fff; }
 .btn.active-solar { background: #c87800; color: #fff; border-color: #c87800; }
 .btn.active-coal  { background: #555;    color: #fff; border-color: #555; }
 .btn.active-cmp   { background: #2d6bbf; color: #fff; border-color: #2d6bbf; }
+.btn.active-neg   { background: #7b3fa0; color: #fff; border-color: #7b3fa0; }
+.btn.active-high  { background: #c0392b; color: #fff; border-color: #c0392b; }
 
 
 .kpi-row {
@@ -122,6 +124,8 @@ header a:hover { color: #fff; }
         <button class="btn active-price" id="btn-price" onclick="toggle('price')">💶 Цена</button>
         <button class="btn active-solar" id="btn-solar" onclick="toggle('solar')">☀️ Слънчева</button>
         <button class="btn active-coal"  id="btn-coal"  onclick="toggle('coal')">🏭 Въглища</button>
+        <button class="btn" id="btn-negHours" onclick="toggle('negHours')">🟣 Отриц. часове/год.</button>
+        <button class="btn" id="btn-highHours" onclick="toggle('highHours')">🔴 Часове &gt;200 EUR/год.</button>
         <span style="width:1px;background:#dde4f0;align-self:stretch;margin:0 4px;"></span>
         <button class="btn" id="btn-cmp-1" onclick="setCompareMode(1)">Промяна за 1г.</button>
         <button class="btn active-cmp" id="btn-cmp-3" onclick="setCompareMode(3)">Промяна за 3г.</button>
@@ -157,6 +161,7 @@ header a:hover { color: #fff; }
         <br><b>Слънчева:</b> ЕСО СКАДА (ФЕЦ) + ENTSOE.
         <br><b>Въглища:</b> Кондензационни ТЕЦ + Топлофикационни ТЕЦ + Заводски ТЕЦ (ЕСО СКАДА) + ENTSOE.
         <br>Генерацията е в <b>TWh/год.</b> (годишен еквивалент). Последните ~182 дни нямат пълен 365д прозорец.
+        <br><b>Часове/год.:</b> от Ember почасови цени — за всяка година, брой часове с цена под 0 EUR/MWh (лилаво) и брой часове с цена над 200 EUR/MWh (червено), групирани по 10-EUR интервали. Текущата година е частична (точката е на последната налична дата).
       </div>
     </div>
   </div>
@@ -170,16 +175,28 @@ const DATA_URL = (location.hostname === 'localhost' || location.protocol === 'fi
   ? '../eso-data/data/trends_daily.json'
   : 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data/trends_daily.json';
 
+const BUCKETS_URL = (location.hostname === 'localhost' || location.protocol === 'file:')
+  ? '../eso-data/data/price_hours_buckets.json'
+  : 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data/price_hours_buckets.json';
+
+// Threshold (EUR/MWh) above which an hour counts toward the "high-price hours" line.
+const HIGH_PRICE_THRESHOLD = 200;
+
 const MW_TO_TWH = 8760 / 1e6;
 
-const vis = { price: true, solar: true, coal: true };
+const vis = { price: true, solar: true, coal: true, negHours: false, highHours: false };
 let plotData = null;
 let compareMode = 3; // 1, 3, or 'ytd'
+
+// Maps vis-key -> CSS active-* suffix, for keys whose button class doesn't
+// match the key name 1:1 (e.g. 'negHours' button uses '.active-neg').
+const ACTIVE_CLASS = { negHours: 'neg', highHours: 'high' };
 
 function toggle(key) {
   vis[key] = !vis[key];
   const btn = document.getElementById('btn-' + key);
-  btn.className = 'btn' + (vis[key] ? ' active-' + key : '');
+  const suffix = ACTIVE_CLASS[key] || key;
+  btn.className = 'btn' + (vis[key] ? ' active-' + suffix : '');
   if (plotData) render();
 }
 
@@ -272,22 +289,25 @@ function mwToTwh(arr) {
 }
 
 function render() {
-  const { days, maPrice, maSolar, maCoal } = plotData;
+  const { days, maPrice, maSolar, maCoal, yearX, yearNeg, yearHigh } = plotData;
   const maSolarTwh = mwToTwh(maSolar);
   const maCoalTwh  = mwToTwh(maCoal);
 
   const traces = [];
-  const C = { price: '#1a6fbf', solar: '#c87800', coal: '#666' };
+  const C = { price: '#1a6fbf', solar: '#c87800', coal: '#666', neg: '#7b3fa0', high: '#c0392b' };
+  const needsHoursAxis = vis.negHours || vis.highHours;
 
   if (vis.price) traces.push({ x: days, y: maPrice,    name: 'Цена 365д MA (EUR/MWh)',         yaxis:'y1', mode:'lines', line:{color:C.price, width:3} });
   if (vis.solar) traces.push({ x: days, y: maSolarTwh,    name: 'Слънчева 365д MA (TWh/год.)',yaxis:'y2', mode:'lines', line:{color:C.solar, width:3} });
   if (vis.coal)  traces.push({ x: days, y: maCoalTwh,     name: 'Въглища 365д MA (TWh/год.)', yaxis:'y2', mode:'lines', line:{color:C.coal,  width:3, dash:'dot'} });
+  if (vis.negHours && yearX)  traces.push({ x: yearX, y: yearNeg,  name: 'Часове с отрицателна цена (бр./год.)', yaxis:'y3', mode:'lines+markers', line:{color:C.neg, width:2.5}, marker:{size:6} });
+  if (vis.highHours && yearX) traces.push({ x: yearX, y: yearHigh, name: `Часове с цена >${HIGH_PRICE_THRESHOLD} EUR/MWh (бр./год.)`, yaxis:'y3', mode:'lines+markers', line:{color:C.high, width:2.5, dash:'dash'}, marker:{size:6} });
 
-  Plotly.react('chart', traces, {
+  const layout = {
     dragmode: false,
     height: 620,
-    margin: { t: 16, r: 80, b: 52, l: 68 },
-    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 11 } },
+    margin: { t: 16, r: needsHoursAxis ? 60 : 80, b: 52, l: 68 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 11 }, domain: needsHoursAxis ? [0, 0.84] : [0, 1] },
     yaxis: {
       title: { text: 'Цена (EUR/MWh)', font: { color: C.price, size: 12 } },
       tickfont: { color: C.price, size: 11 },
@@ -296,24 +316,67 @@ function render() {
     yaxis2: {
       title: { text: 'Генерация (TWh/год.)', font: { color: '#555', size: 12 } },
       tickfont: { color: '#555', size: 11 },
-      overlaying: 'y', side: 'right', showgrid: false, rangemode: 'tozero', zeroline: false,
+      overlaying: 'y', side: 'right', anchor: needsHoursAxis ? 'free' : 'x', position: needsHoursAxis ? 0.84 : 1,
+      showgrid: false, rangemode: 'tozero', zeroline: false,
     },
     legend: { orientation: 'h', y: -0.18, x: 0.5, xanchor: 'center', font: { size: 11 } },
     plot_bgcolor: '#fff', paper_bgcolor: '#fff',
     hovermode: 'x unified', hoverlabel: { font: { size: 11 } },
-  }, { responsive: true, displayModeBar: false });
+  };
+  if (needsHoursAxis) {
+    layout.yaxis3 = {
+      title: { text: 'Часове/год.', font: { color: '#8a3fa0', size: 12 } },
+      tickfont: { color: '#8a3fa0', size: 11 },
+      overlaying: 'y', side: 'right', anchor: 'free', position: 1,
+      showgrid: false, rangemode: 'tozero', zeroline: false,
+    };
+  }
+
+  Plotly.react('chart', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+// For each year in the buckets dataset, sum hours in buckets below 0 EUR/MWh
+// (negative-price hours) and at/above HIGH_PRICE_THRESHOLD (high-price hours).
+// Anchors each year's point at Dec 31 for completed years, or at the last
+// available daily date for the current (partial) year, so the line sits on
+// the same date axis as the 365d-MA traces.
+function buildYearlySeries(bucketsData, days) {
+  const { years, bucket_lo, hours, partial_year } = bucketsData;
+  const yearX = [], yearNeg = [], yearHigh = [];
+  for (const year of years) {
+    const counts = hours[String(year)];
+    let neg = 0, high = 0;
+    for (let i = 0; i < bucket_lo.length; i++) {
+      if (bucket_lo[i] < 0) neg += counts[i];
+      else if (bucket_lo[i] >= HIGH_PRICE_THRESHOLD) high += counts[i];
+    }
+    let x = `${year}-12-31`;
+    if (year === partial_year) {
+      for (let i = days.length - 1; i >= 0; i--) {
+        if (days[i].startsWith(String(year))) { x = days[i]; break; }
+      }
+    }
+    yearX.push(x); yearNeg.push(neg); yearHigh.push(high);
+  }
+  return { yearX, yearNeg, yearHigh };
 }
 
 async function main() {
-  const data = await fetch(DATA_URL).then(r => r.json());
+  const [data, bucketsData] = await Promise.all([
+    fetch(DATA_URL).then(r => r.json()),
+    fetch(BUCKETS_URL).then(r => r.json()).catch(() => null),
+  ]);
   const W = 365;
   const maSolar = rollingMean(data.solar, W);
   const maCoal  = rollingMean(data.coal,  W);
+
+  const yearly = bucketsData ? buildYearlySeries(bucketsData, data.days) : {};
 
   plotData = {
     days: data.days,
     maPrice: rollingMean(data.price, W),
     maSolar, maCoal,
+    yearX: yearly.yearX, yearNeg: yearly.yearNeg, yearHigh: yearly.yearHigh,
   };
 
   document.getElementById('status').style.display = 'none';

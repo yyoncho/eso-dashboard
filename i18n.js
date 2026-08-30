@@ -120,6 +120,14 @@
     [' за 1 год.', ' over 1 yr'],
     ['Промяна за 1г.', 'Change over 1yr'],
     ['Промяна за 3г.', 'Change over 3yr'],
+    ['🟣 Отриц. часове/год.', '🟣 Negative-price hrs/yr'],
+    ['🔴 Часове >200 EUR/год.', '🔴 Hours >200 EUR/yr'],
+    ['Часове с отрицателна цена (бр./год.)', 'Negative-price hours (count/yr)'],
+    ['Часове с цена >200 EUR/MWh (бр./год.)', 'Hours with price >200 EUR/MWh (count/yr)'],
+    ['Часове/год.:', 'Hours/yr:'],
+    ['от Ember почасови цени — за всяка година, брой часове с цена под 0 EUR/MWh (лилаво) и брой часове с цена над 200 EUR/MWh (червено), групирани по 10-EUR интервали. Текущата година е частична (точката е на последната налична дата).',
+     'from Ember hourly prices — for each year, the count of hours priced below 0 EUR/MWh (purple) and above 200 EUR/MWh (red), grouped into 10-EUR bands. The current year is partial (its point sits at the latest available date).'],
+    ['Часове/год.', 'Hours/yr'],
     ['TWh/год.', 'TWh/yr'],
 
     // ═══ pumps.html (long entries first -- they overlap with shorter charging.html
