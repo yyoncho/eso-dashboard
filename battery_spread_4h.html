@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Спред 4ч — арбитраж на батерии — БГ Eнергетика</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="i18n.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, Helvetica, sans-serif; background: #eef3f8; color: #1a2233; font-size: 14px; }
+
+header {
+  background: linear-gradient(180deg, #004494 0%, #003070 100%);
+  color: #fff;
+  border-bottom: 3px solid #ffd700;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+header h1 { font-size: 1rem; font-weight: 700; }
+header a  { color: rgba(255,255,255,0.72); font-size: 0.78rem; text-decoration: none; }
+header a:hover { color: #fff; }
+
+.page { max-width: 1120px; margin: 0 auto; padding: 16px; }
+
+.panel {
+  background: #fff;
+  border: 1px solid #c5d8ee;
+  border-radius: 6px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.panel-header {
+  background: #e8f0fa;
+  border-bottom: 1px solid #c5d8ee;
+  padding: 9px 16px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #003070;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.panel-body { padding: 14px 16px; }
+
+.controls { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.btn {
+  padding: 4px 11px;
+  border: 1px solid #c5d8ee;
+  border-radius: 4px;
+  background: #f0f5fb;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #444;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.btn:hover { background: #dce8f5; }
+.btn.active-ma { background: #1a6fbf; color: #fff; border-color: #1a6fbf; }
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+@media (max-width: 600px) { .kpi-row { grid-template-columns: 1fr; } }
+
+.kpi {
+  border-radius: 5px;
+  padding: 11px 14px;
+  border: 1px solid;
+}
+.kpi.ma   { background: #f0f6ff; border-color: #b8d4f5; }
+.kpi.today{ background: #fff8ee; border-color: #f5d98a; }
+.kpi-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; color: #6a7a90; margin-bottom: 4px; }
+.kpi-val   { font-size: 1.3rem; font-weight: 700; line-height: 1.1; }
+.kpi.ma    .kpi-val { color: #1a6fbf; }
+.kpi.today .kpi-val { color: #c87800; }
+.kpi-sub { font-size: 0.71rem; color: #5a6a80; margin-top: 4px; }
+
+.note {
+  font-size: 0.7rem;
+  color: #6a7a90;
+  margin-top: 10px;
+  line-height: 1.65;
+  border-top: 1px solid #e8f0fa;
+  padding-top: 8px;
+}
+#status { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔁 Спред 4ч — арбитраж на батерии — БГ Eнергетика</h1>
+  <a href="index.html">← Табло</a>
+  <span id="lang-flags" style="margin-left:10px;"></span>
+</header>
+
+<div class="page">
+
+  <div class="panel">
+    <div class="panel-header">
+      <span>Най-добър постижим 4-часов спред (теоретичен, перфектна прогноза)</span>
+      <div class="controls">
+        <button class="btn" id="btn-ma-7" onclick="setMA(7)">7д MA</button>
+        <button class="btn" id="btn-ma-30" onclick="setMA(30)">30д MA</button>
+        <button class="btn active-ma" id="btn-ma-365" onclick="setMA(365)">365д MA</button>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="kpi-row" id="kpi-row" style="display:none">
+        <div class="kpi ma">
+          <div class="kpi-label" id="kl-ma">Текуща плъзгаща средна</div>
+          <div class="kpi-val" id="kv-ma">—</div>
+          <div class="kpi-sub" id="ks-ma"></div>
+        </div>
+        <div class="kpi today">
+          <div class="kpi-label">Последен ден (сурова стойност)</div>
+          <div class="kpi-val" id="kv-today">—</div>
+          <div class="kpi-sub" id="ks-today"></div>
+        </div>
+      </div>
+
+      <div id="status">Зареждане…</div>
+      <div id="chart"></div>
+
+      <div class="note">
+        <b>Данни:</b> Ember Climate, почасови Day-Ahead цени за България, от октомври 2016 г.
+        <br><b>Методология:</b> за всеки календарен ден (българско време) се намира най-евтиният непрекъснат 4-часов прозорец (теоретично зареждане) и най-скъпият непрекъснат 4-часов прозорец (теоретично разреждане); спредът е разликата между средните им цени (EUR/MWh). Това е стандартна оценка на арбитражния потенциал при батерия с фиксирана продължителност и перфектна прогноза за деня — не изисква зареждането да предхожда разреждането във времето и не отчита ефективност на цикъла, деградация или пазарно въздействие.
+        <br>Стойностите са илюстративни, не реални финансови резултати — те са теоретичен таван ("perfect foresight"), а не това, което реална батерия действително е спечелила. За по-реалистично моделиране на диспечиране виж bess_analysis.py / weekly_battery_calibrated.py в проекта.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+const DATA_URL = (location.hostname === 'localhost' || location.protocol === 'file:')
+  ? '../eso-data/data/battery_spread_daily.json'
+  : 'https://raw.githubusercontent.com/yyoncho/eso-dashboard/refs/heads/data/data/battery_spread_daily.json';
+
+let plotData = null;
+let maWindow = 365; // 7, 30, or 365
+
+function rollingMean(arr, W) {
+  const out = new Array(arr.length).fill(null);
+  let sum = 0, n = 0, buf = [];
+  for (let i = 0; i < arr.length; i++) {
+    const v = arr[i];
+    if (v != null) { sum += v; n++; }
+    buf.push(v);
+    if (buf.length > W) { const old = buf.shift(); if (old != null) { sum -= old; n--; } }
+    out[i] = (buf.length === W && n >= W * 0.6) ? sum / n : null;
+  }
+  return out;
+}
+
+function lastNonNull(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) if (arr[i] != null) return { val: arr[i], idx: i };
+  return null;
+}
+
+function setMA(w) {
+  maWindow = w;
+  document.getElementById('btn-ma-7').className = 'btn' + (w === 7 ? ' active-ma' : '');
+  document.getElementById('btn-ma-30').className = 'btn' + (w === 30 ? ' active-ma' : '');
+  document.getElementById('btn-ma-365').className = 'btn' + (w === 365 ? ' active-ma' : '');
+  if (plotData) { updateKpis(); render(); }
+}
+
+function updateKpis() {
+  const { days, spread } = plotData;
+  const ma = rollingMean(spread, maWindow);
+  const lastMa = lastNonNull(ma);
+  const lastRaw = lastNonNull(spread);
+
+  document.getElementById('kl-ma').textContent = `Текуща ${maWindow}д плъзгаща средна`;
+  document.getElementById('kv-ma').textContent = lastMa ? lastMa.val.toFixed(1) + ' EUR/MWh' : '—';
+  document.getElementById('ks-ma').textContent = lastMa ? `към ${days[lastMa.idx]}` : '';
+
+  document.getElementById('kv-today').textContent = lastRaw ? lastRaw.val.toFixed(1) + ' EUR/MWh' : '—';
+  document.getElementById('ks-today').textContent = lastRaw ? `${days[lastRaw.idx]} (сурова, силно шумна)` : '';
+
+  document.getElementById('kpi-row').style.display = '';
+}
+
+function render() {
+  const { days, spread } = plotData;
+  const ma = rollingMean(spread, maWindow);
+
+  const traces = [
+    { x: days, y: ma, name: `${maWindow}д MA спред (EUR/MWh)`, mode: 'lines', line: { color: '#1a6fbf', width: 2.5 } },
+  ];
+
+  const layout = {
+    dragmode: false,
+    height: 560,
+    margin: { t: 16, r: 20, b: 52, l: 68 },
+    xaxis: { showgrid: true, gridcolor: '#e8f0fa', tickfont: { size: 11 } },
+    yaxis: {
+      title: { text: 'Спред (EUR/MWh)', font: { color: '#1a6fbf', size: 12 } },
+      tickfont: { color: '#1a6fbf', size: 11 },
+      gridcolor: '#e8f0fa', rangemode: 'tozero', zeroline: false,
+    },
+    legend: { orientation: 'h', y: -0.18, x: 0.5, xanchor: 'center', font: { size: 11 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    hovermode: 'x unified', hoverlabel: { font: { size: 11 } },
+  };
+
+  Plotly.react('chart', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+async function main() {
+  const data = await fetch(DATA_URL).then(r => r.json());
+  plotData = data;
+
+  document.getElementById('status').style.display = 'none';
+  updateKpis();
+  render();
+}
+
+main();
+</script>
+</body>
+</html>
