@@ -82,6 +82,12 @@
      'Daily discharged energy. ESO SCADA data since 3 June 2026.'],
     ['Дневна енергия на помпите. ЕСО SCADA данни от 3 юни 2026.',
      'Daily pump energy. ESO SCADA data since 3 June 2026.'],
+    ['Товар на РБ + зареждане на ССЕЕ. ЕСО SCADA 5-мин данни от май 2026.',
+     'Bulgaria load + BESS charging. ESO SCADA 5-min data since May 2026.'],
+    ['Максимално общо производство в дневния прозорец 08:00–18:00 ч. (българско време). ЕСО SCADA 5-мин данни от май 2026.',
+     'Maximum total generation within the daylight window 08:00–18:00 (BG local time). ESO SCADA 5-min data since May 2026.'],
+    ['Максимално общо производство във вечерния пиков прозорец 18:00–22:00 ч. (българско време). ЕСО SCADA 5-мин данни от май 2026.',
+     'Maximum total generation within the evening peak window 18:00–22:00 (BG local time). ESO SCADA 5-min data since May 2026.'],
     ['Данни от ЕСО SCADA (часови стойности, местно СЧВ). Зонираните часове са в UTC+3 (EEST).',
      'Data from ESO SCADA (hourly values, local time). Zoned hours are UTC+3 (EEST).'],
     ['⚡ Исторически рекорд за тази категория', '⚡ All-time record for this category'],
@@ -109,6 +115,9 @@
     ['Генерация (TWh/год.)', 'Generation (TWh/yr)'],
     ['Цена (EUR/MWh)', 'Price (EUR/MWh)'],
     [' за 3 год.', ' over 3 yrs'],
+    [' за 1 год.', ' over 1 yr'],
+    ['Промяна за 1г.', 'Change over 1yr'],
+    ['Промяна за 3г.', 'Change over 3yr'],
     ['TWh/год.', 'TWh/yr'],
 
     // ═══ pumps.html (long entries first -- they overlap with shorter charging.html
@@ -413,6 +422,9 @@
     ['Дневен дял ВЕИ', 'Daily RES share'],
     ['ВЕИ енергия за ден', 'RES energy in a day'],
     ['Най-дълго 100% ВЕИ', 'Longest 100% RES'],
+    ['Пиково потребление', 'Peak consumption'],
+    ['Пиково производство (дневно, 08-18ч)', 'Peak generation (daylight, 08-18h)'],
+    ['Пиково производство (вечерен пик, 18-22ч)', 'Peak generation (evening peak, 18-22h)'],
 
     // ═══ headers / navigation ═══
     ['БГ Мрежов Монитор — неофициален', 'BG Grid Monitor — unofficial'],
@@ -451,8 +463,7 @@
     ['GitHub в момента има проблеми с достъпа до данните — показва се резервно (остаряло) копие',
      'GitHub is currently having data-access issues — showing a backup (stale) copy'],
     ['Исторически ден — не е в реално време', 'Historical day — not real-time'],
-    ['Рекорди — ВЕИ и ССЕЕ', 'Records — RES & BESS'],
-    ['Пълна история на рекордите', 'Full record history'],
+    ['Рекорди →', 'Records →'],
     ['🏆 Рекорди', '🏆 Records'],
     ['Анализи', 'Analyses'],
     ['Табло', 'Dashboard'],

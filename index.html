@@ -208,32 +208,8 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
 .rec-alert-label { font-size: 0.65rem; color: #7a5500; font-weight: 400; margin-left: 2px; }
 #rec-alerts-label { font-size: 0.7rem; font-weight: 700; color: #7a5500; margin-right: 10px; vertical-align: middle; letter-spacing: 0.03em; }
 
-/* ── records dropdown ── */
+/* ── nav dropdown wrap (used by "Анализи") ── */
 .rec-dropdown-wrap { position: relative; }
-#rec-dropdown-panel {
-  display: none; position: absolute; top: calc(100% + 6px); right: 0;
-  background: #fff; border: 1px solid #c5d8ee; border-radius: 6px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.18); z-index: 200;
-  min-width: 260px; max-width: calc(100vw - 16px);
-  max-height: calc(100svh - 120px); overflow-y: auto;
-}
-#rec-dropdown-panel.open { display: block; }
-.rec-dropdown-title {
-  background: #004494; color: #fff; font-size: 0.7rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.07em; padding: 7px 12px;
-}
-.rec-card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 14px; border-bottom: 1px solid #edf2f8;
-}
-.rec-card:last-child { border-bottom: none; }
-.rec-card:hover { background: #f5f9ff; }
-.rec-label { font-size: 0.7rem; color: #5a7090; flex: 1; }
-.rec-val   { font-size: 1.1rem; font-weight: 700; color: #1a2233; white-space: nowrap; }
-.rec-unit  { font-size: 0.65rem; color: #7a8aaa; width: 20px; }
-.rec-date  { font-size: 0.7rem; white-space: nowrap; }
-.rec-date a { color: #004494; text-decoration: none; font-weight: 600; }
-.rec-date a:hover { text-decoration: underline; }
 
 /* ── RE stats bar ── */
 #re-stats-bar { display: none; }
@@ -288,16 +264,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
             </div>
           </div>
         </div>
-        <div class="rec-dropdown-wrap">
-          <button class="nav-btn" id="rec-btn" onclick="toggleRecords(event)">🏆 Рекорди</button>
-          <div id="rec-dropdown-panel">
-            <div class="rec-dropdown-title">Рекорди — ВЕИ и ССЕЕ</div>
-            <div id="records-inner"></div>
-            <div style="padding:8px 12px 4px;border-top:1px solid #eef0f5;margin-top:4px">
-              <a href="records.html" style="font-size:0.75rem;color:#2d6bbf;text-decoration:none">Пълна история на рекордите →</a>
-            </div>
-          </div>
-        </div>
+        <a class="nav-btn" id="rec-btn" href="records.html" style="text-decoration:none;display:inline-block">Рекорди →</a>
       </div>
     </div>
   </div>
@@ -2115,24 +2082,6 @@ async function loadRecords() {
   try {
     const rec = await getJSON(`${BASE}/records.json`);
     _rec = rec;
-    const inner = document.getElementById('records-inner');
-    inner.innerHTML = '';
-    const ORDER = ['solar', 'solar_gwh', 'batt_chg', 'total_chg', 'chg_gwh_day', 'batt_dis', 'dis_gwh_day', 'pumps_gwh', 'daily_re', 're_gwh_day', 're_hours', 'export'];
-    for (const key of ORDER) {
-      const r = rec[key]; if (!r) continue;
-      const div = document.createElement('div');
-      div.className = 'rec-card';
-      const valStr = ['%', 'ч', 'GWh'].includes(r.unit) ? r.val.toFixed(1) : Math.round(r.val).toLocaleString('bg-BG');
-      const dateHtml = r.date
-        ? `<a href="#day=${r.date}" data-day="${r.date}" data-snap="${r.snap_ts||''}" onclick="navigateRecord(event,this)">${r.date}</a>`
-        : '—';
-      div.innerHTML = `
-        <div class="rec-label">${r.label}</div>
-        <div class="rec-val">${valStr}</div>
-        <div class="rec-unit">${r.unit}</div>
-        <div class="rec-date">${dateHtml}</div>`;
-      inner.appendChild(div);
-    }
     _recordsLoaded = true;
   } catch(e) { console.warn('records.json not available', e); }
 }
@@ -2144,6 +2093,7 @@ function updateRecordAlerts(allRecords, binned, dateStr) {
   const ih = 15 / 60;
   let solarPeak = 0, chgPeak = 0, totalChgPeak = 0, disPeak = 0, exportPeak = 0;
   let solarGwh = 0, chgGwh = 0, disGwh = 0, pumpsGwh = 0;
+  let peakConsumption = 0, peakGenDaylight = 0, peakGenEvening = 0;
 
   // Snapshot peaks from raw records
   for (const r of allRecords) {
@@ -2152,6 +2102,10 @@ function updateRecordAlerts(allRecords, binned, dateStr) {
     totalChgPeak = Math.max(totalChgPeak, Math.max(0, (r['batt_charge_mw'] || 0) + (r['pumps_mw'] || 0)));
     disPeak      = Math.max(disPeak,      Math.max(0, r['batt_discharge_mw'] || 0));
     exportPeak   = Math.max(exportPeak,   Math.max(0, -(r['net_import_mw'] || 0)));
+    peakConsumption = Math.max(peakConsumption, (r['load_mw'] || 0) + Math.max(0, r['batt_charge_mw'] || 0));
+    const bgHour = parseInt(toSofiaStr(toUtcMs(r)).slice(11, 13), 10);
+    if (bgHour >= 8 && bgHour < 18) peakGenDaylight = Math.max(peakGenDaylight, r['gen_total_mw'] || 0);
+    if (bgHour >= 18 && bgHour < 22) peakGenEvening = Math.max(peakGenEvening, r['gen_total_mw'] || 0);
   }
 
   // GWh accumulators from 15-min binned
@@ -2181,6 +2135,9 @@ function updateRecordAlerts(allRecords, binned, dateStr) {
     pumps_gwh:   pumpsGwh,
     export:      exportPeak,
     daily_re:    dailyRePct,
+    peak_consumption:  peakConsumption,
+    peak_gen_daylight: peakGenDaylight,
+    peak_gen_evening:  peakGenEvening,
     re_gwh_day:  reGwh,
     re_hours:    reHours,
   };
@@ -2214,12 +2171,7 @@ function toggleNpp(e) {
   const d = document.getElementById('npp-dropdown');
   d.style.display = d.style.display === 'block' ? 'none' : 'block';
 }
-function toggleRecords(e) {
-  e.stopPropagation();
-  document.getElementById('rec-dropdown-panel').classList.toggle('open');
-}
 document.addEventListener('click', e => {
-  document.getElementById('rec-dropdown-panel').classList.remove('open');
   if (!e.target.closest('#npp-btn')) document.getElementById('npp-dropdown').style.display = 'none';
   // Anchor links: offset scroll by sticky header height
   const a = e.target.closest('a.anchor-link[href^="#"]');
