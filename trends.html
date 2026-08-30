@@ -123,8 +123,9 @@ header a:hover { color: #fff; }
         <button class="btn active-solar" id="btn-solar" onclick="toggle('solar')">☀️ Слънчева</button>
         <button class="btn active-coal"  id="btn-coal"  onclick="toggle('coal')">🏭 Въглища</button>
         <span style="width:1px;background:#dde4f0;align-self:stretch;margin:0 4px;"></span>
-        <button class="btn" id="btn-cmp-1" onclick="setCompareYears(1)">Промяна за 1г.</button>
-        <button class="btn active-cmp" id="btn-cmp-3" onclick="setCompareYears(3)">Промяна за 3г.</button>
+        <button class="btn" id="btn-cmp-1" onclick="setCompareMode(1)">Промяна за 1г.</button>
+        <button class="btn active-cmp" id="btn-cmp-3" onclick="setCompareMode(3)">Промяна за 3г.</button>
+        <button class="btn" id="btn-cmp-ytd" onclick="setCompareMode('ytd')">Промяна от 01.01.</button>
       </div>
     </div>
     <div class="panel-body">
@@ -173,7 +174,7 @@ const MW_TO_TWH = 8760 / 1e6;
 
 const vis = { price: true, solar: true, coal: true };
 let plotData = null;
-let compareYears = 3;
+let compareMode = 3; // 1, 3, or 'ytd'
 
 function toggle(key) {
   vis[key] = !vis[key];
@@ -182,10 +183,11 @@ function toggle(key) {
   if (plotData) render();
 }
 
-function setCompareYears(n) {
-  compareYears = n;
-  document.getElementById('btn-cmp-1').className = 'btn' + (n === 1 ? ' active-cmp' : '');
-  document.getElementById('btn-cmp-3').className = 'btn' + (n === 3 ? ' active-cmp' : '');
+function setCompareMode(mode) {
+  compareMode = mode;
+  document.getElementById('btn-cmp-1').className = 'btn' + (mode === 1 ? ' active-cmp' : '');
+  document.getElementById('btn-cmp-3').className = 'btn' + (mode === 3 ? ' active-cmp' : '');
+  document.getElementById('btn-cmp-ytd').className = 'btn' + (mode === 'ytd' ? ' active-cmp' : '');
   if (plotData) {
     updatePriceKpi();
     setKpis(plotData.days, mwToTwh(plotData.maSolar), mwToTwh(plotData.maCoal));
@@ -222,14 +224,18 @@ function kpiChgEl(elId, now, then, unit, decimals, lowerIsBetter) {
   const pct = (delta / then * 100).toFixed(0);
   const sign = delta >= 0 ? '+' : '';
   const up = delta > 0;
-  const yrLabel = compareYears === 1 ? '1 год.' : `${compareYears} год.`;
-  el.textContent = `${sign}${delta.toFixed(decimals)} ${unit} (${sign}${pct}%) за ${yrLabel}`;
+  const periodLabel = compareMode === 'ytd' ? 'от 01.01.' : `за ${compareMode === 1 ? '1 год.' : compareMode + ' год.'}`;
+  el.textContent = `${sign}${delta.toFixed(decimals)} ${unit} (${sign}${pct}%) ${periodLabel}`;
   el.className = 'kpi-chg ' + ((lowerIsBetter ? !up : up) ? 'up' : 'down');
 }
 
-function refIndexYearsAgo(days, lastIdx) {
+function refIndex(days, lastIdx) {
+  if (compareMode === 'ytd') {
+    const year = new Date(days[lastIdx]).getFullYear();
+    return idxAtDate(days, `${year}-01-01`);
+  }
   const refDate = new Date(days[lastIdx]);
-  refDate.setFullYear(refDate.getFullYear() - compareYears);
+  refDate.setFullYear(refDate.getFullYear() - compareMode);
   return idxAtDate(days, refDate.toISOString().slice(0, 10));
 }
 
@@ -237,7 +243,7 @@ function updatePriceKpi() {
   const { days, maPrice } = plotData;
   const last = lastNonNull(maPrice);
   if (!last) return;
-  const iRef = refIndexYearsAgo(days, last.idx);
+  const iRef = refIndex(days, last.idx);
   const now = last.val;
   const then = iRef >= 0 ? maPrice[iRef] : null;
   document.getElementById('kv-price').textContent = now != null ? now.toFixed(1) + ' EUR/MWh' : '—';
@@ -248,7 +254,7 @@ function setKpis(days, maSolar, maCoal) {
   const last = lastNonNull(maSolar) || lastNonNull(maCoal);
   if (!last) return;
 
-  const iRef = refIndexYearsAgo(days, last.idx);
+  const iRef = refIndex(days, last.idx);
 
   const sNow = lastNonNull(maSolar)?.val; const sRef = iRef >= 0 ? maSolar[iRef] : null;
   const cNow = lastNonNull(maCoal)?.val;  const cRef = iRef >= 0 ? maCoal[iRef]  : null;

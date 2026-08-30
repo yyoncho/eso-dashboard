@@ -114,6 +114,8 @@
     ['Въглища 365д MA (TWh/год.)', 'Coal 365d MA (TWh/yr)'],
     ['Генерация (TWh/год.)', 'Generation (TWh/yr)'],
     ['Цена (EUR/MWh)', 'Price (EUR/MWh)'],
+    ['Промяна от 01.01.', 'Change since Jan 1'],
+    [' от 01.01.', ' since Jan 1'],
     [' за 3 год.', ' over 3 yrs'],
     [' за 1 год.', ' over 1 yr'],
     ['Промяна за 1г.', 'Change over 1yr'],
