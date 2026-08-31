@@ -250,15 +250,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
         <button class="nav-btn active" id="today-btn" onclick="goToday()">Днес</button>
         <button class="nav-btn" id="next-btn" onclick="shiftDay(1)" disabled>&#8594;</button>
         <span id="day-label"></span>
-        <div class="rec-dropdown-wrap" style="position:relative">
-          <button class="nav-btn" id="records-btn" onclick="toggleRecords(event)" style="padding:0 7px">🏆 ▾</button>
-          <div id="records-dropdown" style="position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #c5d8ee;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:200;min-width:220px;display:none">
-            <div style="background:#004494;color:#fff;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;padding:7px 12px;border-radius:5px 5px 0 0">Рекорди</div>
-            <div style="padding:8px 12px;display:flex;flex-direction:column;gap:6px">
-              <a href="records.html" id="rec-btn" style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">🏆 Пълна история на рекордите →</a>
-            </div>
-          </div>
-        </div>
+        <a class="nav-btn" id="records-btn" href="records.html" style="padding:0 7px;display:inline-flex;align-items:center;text-decoration:none">🏆</a>
         <div class="rec-dropdown-wrap" style="position:relative">
           <button class="nav-btn" id="npp-btn" onclick="toggleNpp(event)" style="padding:0 7px">▾</button>
           <div id="npp-dropdown" style="position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #c5d8ee;border-radius:6px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:200;min-width:220px;display:none">
@@ -2180,14 +2172,8 @@ function toggleNpp(e) {
   const d = document.getElementById('npp-dropdown');
   d.style.display = d.style.display === 'block' ? 'none' : 'block';
 }
-function toggleRecords(e) {
-  e.stopPropagation();
-  const d = document.getElementById('records-dropdown');
-  d.style.display = d.style.display === 'block' ? 'none' : 'block';
-}
 document.addEventListener('click', e => {
   if (!e.target.closest('#npp-btn')) document.getElementById('npp-dropdown').style.display = 'none';
-  if (!e.target.closest('#records-btn')) document.getElementById('records-dropdown').style.display = 'none';
   // Anchor links: offset scroll by sticky header height
   const a = e.target.closest('a.anchor-link[href^="#"]');
   if (a) {

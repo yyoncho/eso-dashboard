@@ -502,7 +502,6 @@
     ['GitHub в момента има проблеми с достъпа до данните — показва се резервно (остаряло) копие',
      'GitHub is currently having data-access issues — showing a backup (stale) copy'],
     ['Исторически ден — не е в реално време', 'Historical day — not real-time'],
-    ['🏆 Пълна история на рекордите →', '🏆 Full record history →'],
     ['🏆 Рекорди', '🏆 Records'],
     ['Анализи', 'Analyses'],
     ['Табло', 'Dashboard'],
