@@ -461,7 +461,7 @@
     ['Дневен дял ВЕИ', 'Daily RES share'],
     ['ВЕИ енергия за ден', 'RES energy in a day'],
     ['Най-дълго 100% ВЕИ', 'Longest 100% RES'],
-    ['Пиково потребление', 'Peak consumption'],
+    ['Пиково натоварване на мрежата', 'Peak network load'],
     ['Пиково производство (дневно, 08-18ч)', 'Peak generation (daylight, 08-18h)'],
     ['Пиково производство (вечерен пик, 18-22ч)', 'Peak generation (evening peak, 18-22h)'],
 

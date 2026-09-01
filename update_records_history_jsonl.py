@@ -112,12 +112,13 @@ def main():
     # New JSONL-only metrics have no pre-JSONL baseline; seed their metadata
     # if this is the first run after adding them.
     NEW_METRICS_META = {
-        'peak_consumption':  {'label': 'Пиково потребление',                          'unit': 'MW', 'since': JSONL_START},
+        'peak_consumption':  {'label': 'Пиково натоварване на мрежата',               'unit': 'MW', 'since': JSONL_START},
         'peak_gen_daylight': {'label': 'Пиково производство (дневно, 08-18ч)',         'unit': 'MW', 'since': JSONL_START},
         'peak_gen_evening':  {'label': 'Пиково производство (вечерен пик, 18-22ч)',    'unit': 'MW', 'since': JSONL_START},
     }
     for k, meta in NEW_METRICS_META.items():
         existing.setdefault(k, dict(meta))
+        existing[k]['label'] = meta['label']
 
     # ── Baseline (pre-JSONL) ──────────────────────────────────────────────────
     sol_hist,       sol_max,       sol_pool       = get_baseline(existing, 'solar')

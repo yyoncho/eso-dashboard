@@ -64,7 +64,7 @@ def main():
         'daily_re':    {'val': 0.0, 'label': 'Дневен дял ВЕИ',             'unit': '%',   'date': None, 'snap_ts': None},
         're_gwh_day':  {'val': 0.0, 'label': 'ВЕИ енергия за ден',         'unit': 'GWh', 'date': None, 'snap_ts': None},
         're_hours':    {'val': 0.0, 'label': 'Най-дълго 100% ВЕИ',         'unit': 'ч',   'date': None, 'snap_ts': None},
-        'peak_consumption':  {'val': 0.0, 'label': 'Пиково потребление',                       'unit': 'MW', 'date': None, 'snap_ts': None},
+        'peak_consumption':  {'val': 0.0, 'label': 'Пиково натоварване на мрежата',             'unit': 'MW', 'date': None, 'snap_ts': None},
         'peak_gen_daylight': {'val': 0.0, 'label': 'Пиково производство (дневно, 08-18ч)',      'unit': 'MW', 'date': None, 'snap_ts': None},
         'peak_gen_evening':  {'val': 0.0, 'label': 'Пиково производство (вечерен пик, 18-22ч)', 'unit': 'MW', 'date': None, 'snap_ts': None},
     }
