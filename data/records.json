@@ -14,11 +14,11 @@
     "snap_ts": null
   },
   "total_chg": {
-    "val": 4249.5,
+    "val": 4277.9,
     "label": "Зареждане ССЕЕ + Помпи",
     "unit": "MW",
     "date": "2026-09-03",
-    "snap_ts": "2026-09-03T09:40:03Z"
+    "snap_ts": "2026-09-03T09:45:02Z"
   },
   "batt_chg": {
     "val": 3915.7,
@@ -84,11 +84,11 @@
     "snap_ts": null
   },
   "peak_consumption": {
-    "val": 8980.3,
+    "val": 9060.0,
     "label": "Пиково натоварване на мрежата",
     "unit": "MW",
     "date": "2026-09-03",
-    "snap_ts": "2026-09-03T09:40:03Z"
+    "snap_ts": "2026-09-03T09:45:02Z"
   },
   "peak_gen_daylight": {
     "val": 8520.5,
