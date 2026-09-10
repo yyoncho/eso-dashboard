@@ -45,7 +45,7 @@
     "val": 15.8,
     "label": "Разреждане за ден",
     "unit": "GWh",
-    "date": "2026-09-07",
+    "date": "2026-09-10",
     "snap_ts": null
   },
   "pumps_gwh": {
