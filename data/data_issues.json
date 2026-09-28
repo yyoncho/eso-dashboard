@@ -1,5 +1,24 @@
 [
   {
+    "id": "2026-09-27-battery-charge-discharge-frozen-overnight",
+    "date": "2026-09-27",
+    "fields": ["batt_charge_mw", "batt_discharge_mw", "ССЕЕ_mw"],
+    "field_labels": {"batt_charge_mw": "battery charging", "batt_discharge_mw": "battery discharging", "ССЕЕ_mw": "net battery signal (derived, resynced after the fix)"},
+    "window_utc": {
+      "start": "2026-09-27T17:40:36Z",
+      "end": "2026-09-28T05:00:44Z"
+    },
+    "records_affected": 133,
+    "description": "New failure mode (not solar/load -- battery charge/discharge specifically). Both batt_charge_mw and batt_discharge_mw got stuck through the entire evening peak and overnight period, spanning two back-to-back frozen values: 1.9/2497.9 MW from 17:40:36Z (22 polls), then 3.8/1758.3 MW from 17:40:36Z through 2026-09-28T05:00:44Z (111 more polls, ~9.25h) -- 133 polls total, ~11.3 hours frozen without a single change, confirmed by direct inspection of the raw timestamped records (a live dashboard view of the chart also showed the ССЕЕ зареждане/разреждане lines dead flat through the whole overnight window). Recovered in a single poll at 2026-09-28T05:05:03Z (discharge jumped from the frozen 1758.3 MW to a real, subsequently-declining 1797.4 MW).",
+    "observed_stuck_value_mw": {
+      "batt_charge_mw": 3.8,
+      "batt_discharge_mw": 1758.3
+    },
+    "correction_method": "Adapted from the standard playbook: matched each affected record to the same time-of-day on 2026-09-26 (prior day), but used an ADDITIVE offset blend (today_boundary - yesterday_boundary, linearly interpolated across the window) instead of a multiplicative ratio. A ratio-based blend was tried first and failed badly -- the recovery boundary (05:05 BG, near-zero overnight reference) produced a ~14.5x ratio that, when applied to yesterday's much larger evening-peak reference values earlier in the window, produced physically impossible discharge values up to 9006 MW (real max is ~4020 MW). Reverted and redid with the additive-offset method, which stays bounded regardless of how small the reference denominator is, plus a hard sanity cap at 4700 MW on both fields as a safety net. Verified smooth connections at both boundaries (2603.4->2616.8 MW at start, 1686.4->1797.4 MW at end) and no values above the cap. ССЕЕ_mw (net signal) resynced as discharge-charge after the fix. records.json/records_history.json regenerated -- confirmed the false batt_dis record (9006 MW, from the first failed attempt) is gone; correct value is 4020.5 MW from an unrelated, real, uncorrected evening-peak poll on 09-28.",
+    "status": "fixed",
+    "note": "First occurrence of BOTH battery fields freezing simultaneously (prior incidents were solar+load). Also the first time the ratio-based correction method itself produced a bad result -- worth remembering that ratio blending is unsafe whenever a boundary reference value can be near-zero; additive-offset blending is the safer default for any field (like battery dispatch) that isn't weather-driven and can legitimately swing between near-zero and high magnitude."
+  },
+  {
     "id": "2026-09-14-solar-load-spike-afternoon",
     "date": "2026-09-14",
     "fields": ["ФЕЦ", "Товар на РБ", "load_mw", "gen_total_mw"],
