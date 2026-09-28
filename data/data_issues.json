@@ -1,5 +1,24 @@
 [
   {
+    "id": "2026-09-27-battery-charge-discharge-frozen-overnight",
+    "date": "2026-09-27",
+    "fields": ["batt_charge_mw", "batt_discharge_mw", "ССЕЕ_mw"],
+    "field_labels": {"batt_charge_mw": "battery charging", "batt_discharge_mw": "battery discharging", "ССЕЕ_mw": "net battery signal (derived, resynced after the fix)"},
+    "window_utc": {
+      "start": "2026-09-27T17:40:36Z",
+      "end": "2026-09-28T05:05:03Z"
+    },
+    "records_affected": 133,
+    "description": "New failure mode (not solar/load -- battery charge/discharge specifically). Both batt_charge_mw and batt_discharge_mw got stuck through the entire evening peak and overnight period: 1.9/2497.9 MW from 17:40:36Z (22 polls), then 3.8/1758.3 MW through 2026-09-28T05:00:44Z (111 more polls, ~9.25h) -- 133 polls total, ~11.3 hours frozen without a single change. Confirmed both by direct inspection of raw records and visually on the live dashboard (flat ССЕЕ зареждане/разреждане lines through the whole overnight window). Recovered in a single poll at 2026-09-28T05:05:03Z.",
+    "observed_stuck_value_mw": {
+      "batt_charge_mw": 3.8,
+      "batt_discharge_mw": 1758.3
+    },
+    "correction_method": "TWO ATTEMPTS -- the first was wrong and had to be reverted, worth recording why. Attempt 1 used the standard playbook method (prior-day shape, ratio-blended between boundaries) and looked locally smooth, but the user caught that it implied ~16 GWh of discharge with almost no charging over the window -- not physically sustainable for the actual BESS fleet, and a bad case of the same ratio-blow-up risk logged in the 2026-09-14 entry below (the recovery boundary's reference denominator was small, inflating the ratio, then that ratio got applied across the evening-peak portion of the window where magnitudes were much larger -- produced a false 9006 MW discharge record). Reverted via `git revert` (commit was already pushed). Attempt 2 (kept): fetched actual ENTSOE-published generation data for BG via energy-charts.info (`energy_charts.py`, public_power/bg, fields 'Battery' = discharge, 'Battery Consumption' = charge) for the corrupted window, linearly interpolated from ENTSOE's native hourly resolution to the dashboard's 5-min resolution, and wrote those interpolated values directly into the corrupted records (no scaling/blending against a neighboring day at all). This revealed the true shape ESO's own SCADA feed hid: discharge taper from ~1850 MW at 16:00 UTC down to near-zero by 22:00, then the battery CHARGES overnight (peaking ~620 MW charge around 00:00 UTC) rather than continuing to discharge, then discharge ramps back up toward dawn -- the opposite of attempt 1's monotonic-taper assumption. Resulting window energy: 6.06 GWh discharged vs 1.78 GWh charged, a plausible net (evening-peak-heavy) balance. records.json/records_history.json regenerated -- batt_dis record correctly stayed at the real 4020.5 MW (an unrelated, uncorrected evening-peak poll on 09-28), not the false 9006 MW from attempt 1.",
+    "status": "fixed",
+    "note": "Lesson: for battery charge/discharge specifically, ENTSOE's own actual-generation data (via energy-charts.info) directly reports a 'Battery'/'Battery Consumption' series for BG -- prefer fetching that as ground truth over inferring from a neighboring day's SCADA shape, since battery dispatch is a scheduled/economic decision (charge when cheap, discharge when expensive) that doesn't reliably repeat night-to-night the way solar's weather-driven curve roughly does. Also: while investigating, discovered this session's own earlier `git revert` + push to the shared `data` branch caused the VPS poller's git sync to silently fail for ~2 hours (auto-rebase conflicts swallowed by push_data.sh's `|| true` fallback) -- it kept fetching and committing locally the whole time (fetch itself was never broken) but stopped pushing to GitHub. Fixed by SSHing in and running `git rebase --abort` + `git pull --rebase origin data` + `git push origin data` by hand; resolved cleanly. Direct pushes to the shared data branch while the VPS cron is also writing to it are a real conflict risk -- worth rebasing/pushing quickly and double-checking the VPS's git sync afterward whenever this happens."
+  },
+  {
     "id": "2026-09-14-solar-load-spike-afternoon",
     "date": "2026-09-14",
     "fields": ["ФЕЦ", "Товар на РБ", "load_mw", "gen_total_mw"],
