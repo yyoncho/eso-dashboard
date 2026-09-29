@@ -1081,6 +1081,8 @@ function updateNav() {
   const picker = document.getElementById('date-picker');
   if (allDates.length) { picker.min = allDates[0]; picker.max = allDates[allDates.length-1] > today ? allDates[allDates.length-1] : today; }
   picker.value = start;
+  // Calendar picker doesn't fit week/month granularity — arrows navigate instead.
+  picker.style.display = (mode === 'week' || mode === 'month') ? 'none' : '';
 
   // Period-selector controls (mode buttons + custom end-date picker) stay
   // collapsed behind the gear icon until the user opens it, or a non-day
