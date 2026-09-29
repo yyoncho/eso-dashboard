@@ -228,9 +228,23 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
 .re-stat-unit   { font-size: 0.68rem; color: #5a9070; }
 .re-stat-valrow { display: flex; align-items: baseline; gap: 3px; margin-top: 1px; }
 .re-stat-avgpr  { font-size: 0.6rem; color: #8a9ab0; margin-top: 1px; }
+
+#load-bar { position: fixed; top: 0; left: 0; height: 3px; width: 100%; z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+#load-bar.show { opacity: 1; }
+#load-bar::before {
+  content: ''; display: block; height: 100%; width: 40%;
+  background: linear-gradient(90deg, transparent, #ffd700, #ffd700, transparent);
+  animation: load-bar-sweep 1.1s ease-in-out infinite;
+}
+@keyframes load-bar-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
 </style>
 </head>
 <body>
+
+<div id="load-bar"></div>
 
 <header>
   <div class="header-inner">
@@ -253,7 +267,6 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
           <button class="tog-btn" id="mode-day"   onclick="setMode('day')"  title="Единичен ден">Ден</button>
           <button class="tog-btn" id="mode-week"  onclick="setMode('week')"  title="Седмица (7 дни)">Седмица</button>
           <button class="tog-btn" id="mode-month" onclick="setMode('month')" title="Календарен месец">Месец</button>
-          <button class="tog-btn" id="tog-totals" onclick="toggleTotalsMode()" title="Тотали/средни вместо моментна снимка, без рекорди">Тотали</button>
         </div>
         <button class="nav-btn" id="prev-btn" onclick="shiftRange(-1)">&#8592;</button>
         <span id="day-label"></span>
@@ -572,10 +585,6 @@ let priceCache = {};
 let mode       = 'day';   // 'day' | 'week' | 'month' | 'custom'
 let customEnd  = null;    // YYYY-MM-DD, only used when mode === 'custom'
 let modeControlsOpen = false;  // manual toggle for the (collapsed-by-default) period selector
-// Manual override: show totals/averages and drop momentum UI regardless of
-// range length (the >2-day range threshold does this automatically; this
-// lets the user force the same view on a single day or short range too).
-let totalsMode = false;
 let _dayEndStr = null;
 const chartMode = 'instant';
 let reMode            = false;
@@ -625,11 +634,7 @@ if (_initHash.flags) {
   reMode            = f.includes('re');
   eurMode           = f.includes('eur');
   colMode           = f.includes('col');
-  totalsMode        = f.includes('tot');
 }
-// Day + Totals is just Day — an old/hand-typed link combining them collapses
-// to plain Day rather than a state the UI itself can never produce.
-if (mode === 'day') totalsMode = false;
 if (_initHash.hidden) {
   for (const k of _initHash.hidden.split('\t')) if (k) hiddenGenKeys.add(k);
 }
@@ -919,7 +924,7 @@ function writeHash(day, snapTs) {
   if (mode && mode !== 'day') p.set('mode', mode);
   if (mode === 'custom' && customEnd) p.set('end', customEnd);
   if (snapTs) p.set('snap', snapTs);
-  const flags = [reMode && 're', eurMode && 'eur', colMode && 'col', totalsMode && 'tot'].filter(Boolean);
+  const flags = [reMode && 're', eurMode && 'eur', colMode && 'col'].filter(Boolean);
   if (flags.length) p.set('flags', flags.join(','));
   if (hiddenGenKeys.size) p.set('hidden', [...hiddenGenKeys].join('\t'));
   const h = p.toString() ? '#' + p.toString() : '#';
@@ -931,7 +936,6 @@ window.addEventListener('hashchange', () => {
   _pendingSnapTs = snap || null;
   mode = (m && ['week','month','custom'].includes(m)) ? m : 'day';
   customEnd = (mode === 'custom' && end) ? end : null;
-  if (mode === 'day') totalsMode = false;  // Day + Totals is just Day
   refresh();
 });
 
@@ -970,7 +974,7 @@ function pickDate(v) {
   if (mode === 'month') { currentDay = monthStartStr(v); }
   else { currentDay = v === todayStr() ? null : v; }
   if (mode === 'custom' && customEnd && customEnd < (currentDay || todayStr())) customEnd = null;
-  if (mode === 'custom' && !customEnd) { mode = 'day'; totalsMode = false; }
+  if (mode === 'custom' && !customEnd) { mode = 'day'; }
   _pendingSnapTs = null;
   writeHash(currentDay, null);
   refresh();
@@ -978,7 +982,7 @@ function pickDate(v) {
 function pickEndDate(v) {
   if (!v || v === (currentDay || todayStr())) {
     customEnd = null;
-    if (mode === 'custom') { mode = 'day'; totalsMode = false; }
+    if (mode === 'custom') { mode = 'day'; }
   } else {
     customEnd = v;
     mode = 'custom';
@@ -991,16 +995,6 @@ function toggleModeControls() {
   modeControlsOpen = !modeControlsOpen;
   updateNav();
 }
-function toggleTotalsMode() {
-  // Day + Totals is just Day (a single day has nothing to average/total
-  // beyond what the normal day view already shows) — the button is
-  // disabled while mode === 'day', but guard here too in case it's
-  // triggered some other way.
-  if (mode === 'day') return;
-  totalsMode = !totalsMode;
-  writeHash(currentDay, null);
-  refresh();
-}
 function setMode(newMode) {
   if (newMode === mode) return;
   const today = todayStr();
@@ -1012,7 +1006,6 @@ function setMode(newMode) {
     currentDay = monthStartStr(currentDay || today);
   } else if (newMode === 'day') {
     customEnd = null;
-    totalsMode = false;  // Day + Totals is just Day — don't allow the combo
   }
   mode = newMode;
   _pendingSnapTs = null;
@@ -1057,7 +1050,7 @@ function shiftRange(dir) {
   writeHash(currentDay, null);
   refresh();
 }
-function goToday() { mode = 'day'; customEnd = null; totalsMode = false; currentDay = null; _pendingSnapTs = null; writeHash(null, null); refresh(); }
+function goToday() { mode = 'day'; customEnd = null; currentDay = null; _pendingSnapTs = null; writeHash(null, null); refresh(); }
 
 const BG_MONTHS = ['Януари','Февруари','Март','Април','Май','Юни','Юли','Август','Септември','Октомври','Ноември','Декември'];
 function isoWeekNumber(dateStr) {
@@ -1093,20 +1086,11 @@ function updateNav() {
   // collapsed behind the gear icon until the user opens it, or a non-day
   // mode is active (then they stay visible so the current period is clear
   // and easy to change back).
-  const showControls = modeControlsOpen || mode !== 'day' || totalsMode;
+  const showControls = modeControlsOpen || mode !== 'day';
   const modeToggle = document.getElementById('mode-toggle');
   if (modeToggle) modeToggle.style.display = showControls ? '' : 'none';
   const gear = document.getElementById('mode-gear');
   if (gear) gear.classList.toggle('active', showControls);
-
-  const totalsBtn = document.getElementById('tog-totals');
-  if (totalsBtn) {
-    totalsBtn.classList.toggle('active', totalsMode);
-    totalsBtn.disabled = (mode === 'day');
-    totalsBtn.title = mode === 'day'
-      ? 'Тотали не е приложимо за единичен ден'
-      : 'Тотали/средни вместо моментна снимка, без рекорди';
-  }
 
   const endPicker = document.getElementById('date-picker-end');
   if (endPicker) {
@@ -1121,9 +1105,9 @@ function updateNav() {
   if (mWeek)  mWeek.classList.toggle('active',  mode === 'week');
   if (mMonth) mMonth.classList.toggle('active', mode === 'month');
 
-  // Hidden in range-average/Totals mode too — "historical, not live" framing
+  // Hidden in range-average mode too — "historical, not live" framing
   // is redundant once the page is already showing a period average.
-  const isRangeAvgNav = (daysBetween(start, end) + 1 > 2) || totalsMode;
+  const isRangeAvgNav = daysBetween(start, end) + 1 > 2;
   const banner = document.getElementById('past-banner');
   banner.classList.toggle('show', !(mode === 'day' && currentDay === null) && !isRangeAvgNav);
 }
@@ -2296,7 +2280,22 @@ function onSnapSlider(val) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  MAIN REFRESH
 // ══════════════════════════════════════════════════════════════════════════════
+let _loadBarTimer = null;
+function showLoadBar() {
+  clearTimeout(_loadBarTimer);
+  // Small delay so a fast single-day refresh doesn't flash the bar —
+  // week/month ranges (many file fetches) are slow enough to show it.
+  _loadBarTimer = setTimeout(() => {
+    document.getElementById('load-bar').classList.add('show');
+  }, 200);
+}
+function hideLoadBar() {
+  clearTimeout(_loadBarTimer);
+  document.getElementById('load-bar').classList.remove('show');
+}
+
 async function refresh() {
+  showLoadBar();
   document.getElementById('fallback-banner').classList.remove('show');
   try {
     const idx = await getJSON(`${BASE}/index.json`);
@@ -2307,7 +2306,7 @@ async function refresh() {
     const span = daysBetween(start, end) + 1;
     // Per spec: only ranges strictly longer than 2 days switch to averages
     // and drop momentary/snapshot UI. 1-2 day ranges behave exactly as before.
-    const isRangeAvg = span > 2 || totalsMode;
+    const isRangeAvg = span > 2;
 
     const balanceTitle = document.getElementById('balance-title');
     if (balanceTitle) balanceTitle.textContent = isRangeAvg ? 'Баланс за периода' : 'Дневен баланс';
@@ -2438,6 +2437,8 @@ async function refresh() {
   } catch(e) {
     console.error(e);
     document.getElementById('ts-label').textContent = 'Грешка: ' + e.message;
+  } finally {
+    hideLoadBar();
   }
 }
 
