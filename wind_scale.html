@@ -398,26 +398,36 @@ function updateKpis(pts) {
   document.getElementById('ks-net-export-total').textContent = netExportSub;
 
   document.getElementById('kpi-row').style.display = '';
-  renderTotalsCols(pts, ih, battDisGwh);
+  const loadGwh = gwh(pts.map(p => isNaN(p['load_mw']) ? 0 : p['load_mw']), ih);
+  renderTotalsCols(pts, ih, battDisGwh, loadGwh, exportScenGwh);
 }
 
 // Per-source daily totals (scenario), sorted descending — one column per source.
-function renderTotalsCols(pts, ih, battDisGwh) {
-  const rows = GEN_SERIES.map(s => ({
+function renderTotalsCols(pts, ih, battDisGwh, loadGwh, exportGwh) {
+  // Share % is of total generation only — Товар/Износ are a different
+  // category (consumption/flow, not part of the generation mix) and get no share.
+  const genRows = GEN_SERIES.map(s => ({
     label: s.label, color: s.color,
     val: gwh(pts.map(p => Math.max(0, p[s.key] || 0)), ih),
+    isGen: true,
   }));
-  rows.push({ label: 'ССЕЕ разреждане', color: '#f59f00', val: battDisGwh });
+  genRows.push({ label: 'ССЕЕ разреждане', color: '#f59f00', val: battDisGwh, isGen: true });
+  const genTotal = genRows.reduce((s, r) => s + r.val, 0);
+
+  const rows = [
+    ...genRows,
+    { label: 'Товар', color: '#e53935', val: loadGwh, isGen: false },
+    { label: 'Износ', color: '#003070', val: exportGwh, isGen: false },
+  ];
   rows.sort((a, b) => b.val - a.val);
 
-  const total = rows.reduce((s, r) => s + r.val, 0);
   const el = document.getElementById('totals-cols');
   el.innerHTML = rows.map(r => `
     <div class="totals-col">
       <span class="swatch" style="background:${r.color}"></span>
       <span class="name">${r.label}</span>
       <span class="val">${r.val.toFixed(2)} GWh</span>
-      <span class="delta">${total > 0 ? (r.val / total * 100).toFixed(0) : '0'}%</span>
+      <span class="delta">${r.isGen && genTotal > 0 ? (r.val / genTotal * 100).toFixed(0) + '%' : ''}</span>
     </div>`).join('');
   el.style.display = '';
 }
