@@ -103,6 +103,25 @@ input[type="range"] { width: 140px; }
   padding-top: 8px;
 }
 #status { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
+
+.totals-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0 18px;
+}
+.totals-col {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid #eef3f8;
+}
+.totals-col .swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+.totals-col .name { font-size: 0.74rem; color: #4a5a70; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.totals-col .val  { font-size: 0.8rem; font-weight: 700; color: #1a2233; white-space: nowrap; }
+.totals-col .delta { font-size: 0.68rem; color: #6a7a90; white-space: nowrap; }
+.totals-col .delta.up { color: #1a8f5e; }
+.totals-col .delta.down { color: #c0392b; }
 </style>
 </head>
 <body>
@@ -186,41 +205,10 @@ input[type="range"] { width: 140px; }
 
   <div class="panel">
     <div class="panel-header">
-      <span>Общо за деня — сценарий</span>
+      <span>Общо за деня по източник — сценарий</span>
     </div>
     <div class="panel-body">
-      <div class="kpi-row cols-6" id="kpi-row-bottom" style="display:none; margin-bottom:0;">
-        <div class="kpi wind">
-          <div class="kpi-label">Вятър (наблюдаван)</div>
-          <div class="kpi-val" id="kv-wind-orig-bottom">—</div>
-          <div class="kpi-sub" id="ks-wind-orig-bottom"></div>
-        </div>
-        <div class="kpi wind">
-          <div class="kpi-label">Вятър (мащабиран)</div>
-          <div class="kpi-val" id="kv-wind-scaled-bottom">—</div>
-          <div class="kpi-sub" id="ks-wind-scaled-bottom"></div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Общо производство (ден)</div>
-          <div class="kpi-val" id="kv-gen-total-bottom">—</div>
-          <div class="kpi-sub" id="ks-gen-total-bottom"></div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Изкопаемо производство (ден)</div>
-          <div class="kpi-val" id="kv-fossil-total-bottom">—</div>
-          <div class="kpi-sub" id="ks-fossil-total-bottom"></div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Износ (ден)</div>
-          <div class="kpi-val" id="kv-export-total-bottom">—</div>
-          <div class="kpi-sub" id="ks-export-total-bottom"></div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">Нетен износ (ден)</div>
-          <div class="kpi-val" id="kv-net-export-total-bottom">—</div>
-          <div class="kpi-sub" id="ks-net-export-total-bottom"></div>
-        </div>
-      </div>
+      <div class="totals-cols" id="totals-cols" style="display:none;"></div>
     </div>
   </div>
 
@@ -371,12 +359,10 @@ function updateKpis(pts) {
   const deltaPct = windOrigGwh > 0 ? (deltaGwh / windOrigGwh * 100) : NaN;
 
   const windScaledSub = (deltaGwh >= 0 ? '+' : '') + deltaGwh.toFixed(2) + ' GWh' + (isFinite(deltaPct) ? ` (${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(0)}%)` : '');
-  for (const suffix of ['', '-bottom']) {
-    document.getElementById('kv-wind-orig' + suffix).textContent = windOrigGwh.toFixed(2) + ' GWh';
-    document.getElementById('ks-wind-orig' + suffix).textContent = '24ч, наблюдаван вятър';
-    document.getElementById('kv-wind-scaled' + suffix).textContent = windScaledGwh.toFixed(2) + ' GWh';
-    document.getElementById('ks-wind-scaled' + suffix).textContent = windScaledSub;
-  }
+  document.getElementById('kv-wind-orig').textContent = windOrigGwh.toFixed(2) + ' GWh';
+  document.getElementById('ks-wind-orig').textContent = '24ч, наблюдаван вятър';
+  document.getElementById('kv-wind-scaled').textContent = windScaledGwh.toFixed(2) + ' GWh';
+  document.getElementById('ks-wind-scaled').textContent = windScaledSub;
 
   // ── Daily totals: generation, export, net export (baseline vs scenario) ──
   const battDisGwh = gwh(pts.map(p => battDis(p.batt_discharge_mw, p.ts)), ih);
@@ -402,19 +388,38 @@ function updateKpis(pts) {
   const exportSub = fmtDelta(exportBaseGwh, exportScenGwh);
   const netExportSub = fmtDelta(netExportBaseGwh, netExportScenGwh) + ' (+ износ / − внос)';
 
-  for (const suffix of ['', '-bottom']) {
-    document.getElementById('kv-gen-total' + suffix).textContent = genScenGwh.toFixed(2) + ' GWh';
-    document.getElementById('ks-gen-total' + suffix).textContent = genSub;
-    document.getElementById('kv-fossil-total' + suffix).textContent = fossilScenGwh.toFixed(2) + ' GWh';
-    document.getElementById('ks-fossil-total' + suffix).textContent = fossilSub;
-    document.getElementById('kv-export-total' + suffix).textContent = exportScenGwh.toFixed(2) + ' GWh';
-    document.getElementById('ks-export-total' + suffix).textContent = exportSub;
-    document.getElementById('kv-net-export-total' + suffix).textContent = netExportScenGwh.toFixed(2) + ' GWh';
-    document.getElementById('ks-net-export-total' + suffix).textContent = netExportSub;
-  }
+  document.getElementById('kv-gen-total').textContent = genScenGwh.toFixed(2) + ' GWh';
+  document.getElementById('ks-gen-total').textContent = genSub;
+  document.getElementById('kv-fossil-total').textContent = fossilScenGwh.toFixed(2) + ' GWh';
+  document.getElementById('ks-fossil-total').textContent = fossilSub;
+  document.getElementById('kv-export-total').textContent = exportScenGwh.toFixed(2) + ' GWh';
+  document.getElementById('ks-export-total').textContent = exportSub;
+  document.getElementById('kv-net-export-total').textContent = netExportScenGwh.toFixed(2) + ' GWh';
+  document.getElementById('ks-net-export-total').textContent = netExportSub;
 
   document.getElementById('kpi-row').style.display = '';
-  document.getElementById('kpi-row-bottom').style.display = '';
+  renderTotalsCols(pts, ih, battDisGwh);
+}
+
+// Per-source daily totals (scenario), sorted descending — one column per source.
+function renderTotalsCols(pts, ih, battDisGwh) {
+  const rows = GEN_SERIES.map(s => ({
+    label: s.label, color: s.color,
+    val: gwh(pts.map(p => Math.max(0, p[s.key] || 0)), ih),
+  }));
+  rows.push({ label: 'ССЕЕ разреждане', color: '#f59f00', val: battDisGwh });
+  rows.sort((a, b) => b.val - a.val);
+
+  const total = rows.reduce((s, r) => s + r.val, 0);
+  const el = document.getElementById('totals-cols');
+  el.innerHTML = rows.map(r => `
+    <div class="totals-col">
+      <span class="swatch" style="background:${r.color}"></span>
+      <span class="name">${r.label}</span>
+      <span class="val">${r.val.toFixed(2)} GWh</span>
+      <span class="delta">${total > 0 ? (r.val / total * 100).toFixed(0) : '0'}%</span>
+    </div>`).join('');
+  el.style.display = '';
 }
 
 function render(pts) {
