@@ -103,25 +103,6 @@ input[type="range"] { width: 140px; }
   padding-top: 8px;
 }
 #status { color: #5a6a80; font-size: 0.82rem; padding: 24px 16px; text-align: center; }
-
-.totals-cols {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 0 18px;
-}
-.totals-col {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px solid #eef3f8;
-}
-.totals-col .swatch { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
-.totals-col .name { font-size: 0.74rem; color: #4a5a70; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.totals-col .val  { font-size: 0.8rem; font-weight: 700; color: #1a2233; white-space: nowrap; }
-.totals-col .delta { font-size: 0.68rem; color: #6a7a90; white-space: nowrap; }
-.totals-col .delta.up { color: #1a8f5e; }
-.totals-col .delta.down { color: #c0392b; }
 </style>
 </head>
 <body>
@@ -208,7 +189,7 @@ input[type="range"] { width: 140px; }
       <span>Общо за деня по източник — сценарий</span>
     </div>
     <div class="panel-body">
-      <div class="totals-cols" id="totals-cols" style="display:none;"></div>
+      <div id="totals-chart" style="display:none;"></div>
     </div>
   </div>
 
@@ -399,11 +380,11 @@ function updateKpis(pts) {
 
   document.getElementById('kpi-row').style.display = '';
   const loadGwh = gwh(pts.map(p => isNaN(p['load_mw']) ? 0 : p['load_mw']), ih);
-  renderTotalsCols(pts, ih, battDisGwh, loadGwh, exportScenGwh);
+  renderTotalsChart(pts, ih, battDisGwh, loadGwh, exportScenGwh);
 }
 
-// Per-source daily totals (scenario), sorted descending — one column per source.
-function renderTotalsCols(pts, ih, battDisGwh, loadGwh, exportGwh) {
+// Per-source daily totals (scenario), sorted descending — a column (bar) chart.
+function renderTotalsChart(pts, ih, battDisGwh, loadGwh, exportGwh) {
   // Share % is of total generation only — Товар/Износ are a different
   // category (consumption/flow, not part of the generation mix) and get no share.
   const genRows = GEN_SERIES.map(s => ({
@@ -421,15 +402,28 @@ function renderTotalsCols(pts, ih, battDisGwh, loadGwh, exportGwh) {
   ];
   rows.sort((a, b) => b.val - a.val);
 
-  const el = document.getElementById('totals-cols');
-  el.innerHTML = rows.map(r => `
-    <div class="totals-col">
-      <span class="swatch" style="background:${r.color}"></span>
-      <span class="name">${r.label}</span>
-      <span class="val">${r.val.toFixed(2)} GWh</span>
-      <span class="delta">${r.isGen && genTotal > 0 ? (r.val / genTotal * 100).toFixed(0) + '%' : ''}</span>
-    </div>`).join('');
+  const trace = {
+    type: 'bar',
+    x: rows.map(r => r.label),
+    y: rows.map(r => r.val),
+    marker: { color: rows.map(r => r.color) },
+    text: rows.map(r => r.val.toFixed(2) + ' GWh' + (r.isGen && genTotal > 0 ? ` (${(r.val / genTotal * 100).toFixed(0)}%)` : '')),
+    textposition: 'outside',
+    hovertemplate: '%{x}: %{y:.2f} GWh<extra></extra>',
+  };
+
+  const layout = {
+    height: 340,
+    margin: { t: 24, r: 16, b: 60, l: 50 },
+    xaxis: { tickfont: { size: 10 } },
+    yaxis: { title: 'GWh (ден)', gridcolor: '#e8f0fa', tickfont: { size: 10 } },
+    plot_bgcolor: '#fff', paper_bgcolor: '#fff',
+    showlegend: false,
+  };
+
+  const el = document.getElementById('totals-chart');
   el.style.display = '';
+  Plotly.react('totals-chart', [trace], layout, { responsive: true, displayModeBar: false });
 }
 
 function render(pts) {
