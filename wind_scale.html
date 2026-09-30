@@ -189,7 +189,10 @@ input[type="range"] { width: 140px; }
   <div class="panel">
     <div class="panel-header">
       <span>Дневен профил — резултат от сценария</span>
-      <button class="tog-btn" id="tog-re" onclick="setReMode(!reMode)">ВЕИ</button>
+      <div class="toggle-group">
+        <button class="tog-btn" id="tog-re" onclick="setFilterMode('re')">ВЕИ</button>
+        <button class="tog-btn" id="tog-wsb" onclick="setFilterMode('wsb')">Вятър+ФЕЦ+Батерии</button>
+      </div>
     </div>
     <div class="panel-body">
       <div id="status">Зареждане…</div>
@@ -235,24 +238,26 @@ const GEN_SERIES = [
 ];
 const FOSSIL_KEYS = ['Кондензационни ТЕЦ', 'Топлофикационни ТЕЦ', 'Заводски ТЕЦ'];
 const RE_KEYS = new Set(['ВЕЦ', 'Малки ВЕЦ', 'ВяЕЦ', 'ФЕЦ', 'Био ЕЦ']);
+const WSB_KEYS = new Set(['ВяЕЦ', 'ФЕЦ']); // wind + solar (+ battery, always shown)
 const ALL_KEYS = [...GEN_SERIES.map(s => s.key), 'load_mw', 'net_import_mw', 'gen_total_mw', 'batt_charge_mw', 'batt_discharge_mw', 'pumps_mw'];
 
 let allDates = [];
 let selectedDate = null;
 let scaleFactor = 1.0;
-let reMode = false;
+// 'none' | 're' (ВЕИ: all renewables) | 'wsb' (wind + solar + batteries only) — mutually exclusive
+let filterMode = 'none';
 let rawBinned = null;   // 96 bins, 00:00 -> 24:00 selectedDate, chronological
 
-// URL hash state — same pattern as index.html (#day=...&scale=...&re=...)
+// URL hash state — same pattern as index.html (#day=...&scale=...&filter=...)
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
-  return { day: p.get('day'), scale: p.get('scale'), re: p.get('re') };
+  return { day: p.get('day'), scale: p.get('scale'), filter: p.get('filter') };
 }
 function writeHash() {
   const p = new URLSearchParams();
   if (selectedDate) p.set('day', selectedDate);
   p.set('scale', scaleFactor);
-  if (reMode) p.set('re', '1');
+  if (filterMode !== 'none') p.set('filter', filterMode);
   history.replaceState(null, '', '#' + p.toString());
 }
 
@@ -356,16 +361,15 @@ function gwh(mwSeries, ih) {
 function fmtHMin(h) { const m = Math.round(h * 60); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`; }
 
 // Same accounting as index.html's calcReStats — how much of load, interval by
-// interval, is actually covered by RE + battery discharge (scenario values).
-function calcReStats(pts, ih) {
+// interval, is actually covered by the active source set + battery discharge
+// (scenario values). `keys` is the set of GEN_SERIES keys to count.
+function calcReStats(pts, ih, keys) {
   let loadAcc = 0, reAcc = 0, excessAcc = 0, fullH = 0;
   for (const p of pts) {
     const load = p['load_mw'] || 0;
     if (!load) continue;
-    const solar = p['ФЕЦ'] || 0, wind = p['ВяЕЦ'] || 0, vec = p['ВЕЦ'] || 0;
-    const mvec  = p['Малки ВЕЦ'] || 0, bio = p['Био ЕЦ'] || 0;
-    const batt  = battDis(p.batt_discharge_mw, p.ts);
-    const re = solar + wind + vec + mvec + bio + batt;
+    let re = battDis(p.batt_discharge_mw, p.ts);
+    for (const k of keys) re += p[k] || 0;
     const rfl = Math.min(re, load);
     loadAcc   += load * ih / 1000;
     reAcc     += rfl  * ih / 1000;
@@ -377,18 +381,20 @@ function calcReStats(pts, ih) {
 
 function renderReStats(pts, ih) {
   const el = document.getElementById('re-stats-bar');
-  if (!reMode) { el.style.display = 'none'; return; }
-  const rs = calcReStats(pts, ih);
+  if (filterMode === 'none') { el.style.display = 'none'; return; }
+  const keys = filterMode === 'wsb' ? WSB_KEYS : RE_KEYS;
+  const label = filterMode === 'wsb' ? 'Вятър+ФЕЦ+Бат.' : 'ВЕИ';
+  const rs = calcReStats(pts, ih, keys);
   const pct = rs.loadAcc > 0 ? rs.reAcc / rs.loadAcc * 100 : 0;
-  const card = (color, label, val, unit) => `
+  const card = (color, lbl, val, unit) => `
     <div class="kpi" style="border-color:${color}80;">
-      <div class="kpi-label">${label}</div>
+      <div class="kpi-label">${lbl}</div>
       <div class="kpi-val" style="color:${color};">${val}</div>
       <div class="kpi-sub">${unit}</div>
     </div>`;
   el.innerHTML =
-    card('#2ee0ca', 'ВЕИ покритие', pct.toFixed(1), '%') +
-    card('#2ee0ca', 'ВЕИ енергия', rs.reAcc.toFixed(2), 'GWh') +
+    card('#2ee0ca', label + ' покритие', pct.toFixed(1), '%') +
+    card('#2ee0ca', label + ' енергия', rs.reAcc.toFixed(2), 'GWh') +
     card('#cc2200', 'Непокрито', rs.gapAcc.toFixed(2), 'GWh') +
     card('#feb56a', 'Излишък', rs.excessAcc.toFixed(2), 'GWh') +
     card('#8a97ab', '100% покр.', fmtHMin(rs.fullH), 'ч:мин');
@@ -491,38 +497,43 @@ function renderTotalsChart(pts, ih, battDisGwh, loadGwh, exportGwh) {
 
 function render(pts) {
   const xs = pts.map(p => toSofiaLabel(p.ts));
+  const filterKeys = filterMode === 'wsb' ? WSB_KEYS : filterMode === 're' ? RE_KEYS : null;
 
   const genTraces = GEN_SERIES.map(s => ({
     x: xs, y: pts.map(p => isNaN(p[s.key]) ? null : Math.max(0, p[s.key] || 0)),
     name: s.label, stackgroup: 'gen',
-    fillcolor: s.color + 'cc', line: { width: 0.5, color: s.color },
-    visible: (reMode && !RE_KEYS.has(s.key)) ? 'legendonly' : true,
+    fillcolor: s.color + 'cc', line: { width: 0.5, color: s.color, shape: 'linear' },
+    visible: (filterKeys && !filterKeys.has(s.key)) ? 'legendonly' : true,
     hovertemplate: `${s.label}: %{y:.0f} MW<extra></extra>`,
   }));
 
   const battDischargeTrace = {
     x: xs, y: pts.map(p => battDis(p.batt_discharge_mw, p.ts)),
     name: 'ССЕЕ разреждане', stackgroup: 'gen',
-    fillcolor: '#f59f0080', line: { width: 0.5, color: '#f59f00' },
+    fillcolor: '#f59f0080', line: { width: 0.5, color: '#f59f00', shape: 'linear' },
     hovertemplate: 'ССЕЕ разреждане: %{y:.0f} MW<extra></extra>',
   };
+  // In the same stackgroup, after everything else: a negative value here
+  // pulls the running cumulative sum down, so charging carves a visible
+  // dip into the top of the stacked area instead of drawing a separate line.
   const battChargeTrace = {
     x: xs, y: pts.map(p => { const v = p.batt_charge_mw; return (v != null && v > 0) ? -v : 0; }),
-    name: 'ССЕЕ зареждане', line: { color: '#8e24aa', width: 1.5, dash: 'dot', shape: 'spline' },
-    visible: reMode ? 'legendonly' : true,
+    name: 'ССЕЕ зареждане', stackgroup: 'gen',
+    fillcolor: '#8e24aa80', line: { width: 0.5, color: '#8e24aa', shape: 'linear' },
+    visible: filterMode !== 'none' ? 'legendonly' : true,
     hovertemplate: 'ССЕЕ зареждане: %{y:.0f} MW<extra></extra>',
   };
   const hasPumps = pts.some(p => (p.pumps_mw || 0) > 0);
   const pumpsTrace = hasPumps ? {
     x: xs, y: pts.map(p => { const v = p.pumps_mw || 0; return v > 0 ? -v : 0; }),
     name: 'Помпи', line: { color: '#0369a1', width: 1.5, dash: 'dot', shape: 'spline' },
-    visible: reMode ? 'legendonly' : true,
+    visible: filterMode !== 'none' ? 'legendonly' : true,
     hovertemplate: 'Помпи: %{y:.0f} MW<extra></extra>',
   } : null;
 
   const loadTrace = {
     x: xs, y: pts.map(p => isNaN(p['load_mw']) ? null : p['load_mw']),
-    name: 'Товар', line: { color: '#e53935', width: 2.5, shape: 'spline' },
+    name: 'Товар', line: { color: '#000000', width: 2.5, shape: 'spline' },
     hovertemplate: 'Товар: %{y:.0f} MW<extra></extra>',
   };
   const netBaseTrace = {
@@ -533,12 +544,12 @@ function render(pts) {
   };
   const netAdjTrace = {
     x: xs, y: pts.map(p => isNaN(p['net_import_mw_adj']) ? null : p['net_import_mw_adj']),
-    name: 'Нетна позиция — сценарий',
-    line: { color: '#003070', width: 2.5 },
+    name: 'Износ — сценарий',
+    line: { color: '#6a1b9a', width: 2.5 },
     hovertemplate: 'Сценарий нетна позиция: %{y:.0f} MW<extra></extra>',
   };
 
-  const traces = [...genTraces, battDischargeTrace, loadTrace, battChargeTrace];
+  const traces = [...genTraces, battDischargeTrace, battChargeTrace, loadTrace];
   if (pumpsTrace) traces.push(pumpsTrace);
   traces.push(netBaseTrace, netAdjTrace);
 
@@ -556,9 +567,10 @@ function render(pts) {
   Plotly.react('chart', traces, layout, { responsive: true, displayModeBar: false });
 }
 
-function setReMode(on) {
-  reMode = on;
-  document.getElementById('tog-re').classList.toggle('active', on);
+function setFilterMode(mode) {
+  filterMode = (filterMode === mode) ? 'none' : mode; // click active button again to clear
+  document.getElementById('tog-re').classList.toggle('active', filterMode === 're');
+  document.getElementById('tog-wsb').classList.toggle('active', filterMode === 'wsb');
   writeHash();
   if (rawBinned) {
     const pts = computeScenario(rawBinned, scaleFactor);
@@ -627,8 +639,9 @@ async function main() {
   const defaultDate = allDates.length >= 2 ? allDates[allDates.length - 2] : allDates[allDates.length - 1];
   selectedDate = (h.day && allDates.includes(h.day)) ? h.day : defaultDate;
   if (h.scale != null && isFinite(parseFloat(h.scale))) scaleFactor = Math.max(1, parseFloat(h.scale));
-  reMode = h.re === '1';
-  document.getElementById('tog-re').classList.toggle('active', reMode);
+  filterMode = (h.filter === 're' || h.filter === 'wsb') ? h.filter : 'none';
+  document.getElementById('tog-re').classList.toggle('active', filterMode === 're');
+  document.getElementById('tog-wsb').classList.toggle('active', filterMode === 'wsb');
 
   const picker = document.getElementById('date-picker');
   if (allDates.length) { picker.min = allDates[0]; picker.max = allDates[allDates.length - 1]; }
