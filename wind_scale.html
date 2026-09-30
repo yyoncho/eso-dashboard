@@ -75,6 +75,22 @@ input[type="range"] { width: 140px; }
 .btn:hover { background: #dce8f5; }
 .btn.active { background: #1a6fbf; color: #fff; border-color: #1a6fbf; }
 
+.tog-btn {
+  padding: 2px 9px;
+  border: 1px solid #c5d8ee;
+  border-radius: 3px;
+  background: #f0f5fb;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #5a6a80;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: all 0.12s;
+}
+.tog-btn:hover:not(.active) { background: #dce8f5; }
+.tog-btn.active { background: #ffd700; border-color: #ffd700; color: #003070; }
+
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -173,10 +189,11 @@ input[type="range"] { width: 140px; }
   <div class="panel">
     <div class="panel-header">
       <span>Дневен профил — резултат от сценария</span>
-      <button class="btn" id="tog-re" onclick="setReMode(!reMode)">ВЕИ</button>
+      <button class="tog-btn" id="tog-re" onclick="setReMode(!reMode)">ВЕИ</button>
     </div>
     <div class="panel-body">
       <div id="status">Зареждане…</div>
+      <div class="kpi-row cols-6" id="re-stats-bar" style="display:none; margin-bottom:12px;"></div>
       <div id="chart"></div>
       <div class="note">
         <b>Как работи:</b> Вятърната мощност (ВяЕЦ) за избрания ден се умножава по зададения фактор; АЕЦ, ВЕЦ, ФЕЦ, биомасата, товарът, изкопаемото производство (Конд., Топло. и Зав. ТЕЦ) и батериите (ССЕЕ/помпи) остават точно както са наблюдавани — без преизчисляване на диспечирането им. Целият допълнителен вятър (мащабиран − наблюдаван) директно увеличава износа (намалява нетния внос) в същия 15-мин интервал — енергиен баланс на ниво интервал, без времево изместване и без изместване на ТЕЦ.
@@ -335,6 +352,47 @@ function computeScenario(binned, factor) {
 
 function gwh(mwSeries, ih) {
   return mwSeries.reduce((s, v) => s + (isFinite(v) ? v : 0), 0) * ih / 1000;
+}
+function fmtHMin(h) { const m = Math.round(h * 60); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`; }
+
+// Same accounting as index.html's calcReStats — how much of load, interval by
+// interval, is actually covered by RE + battery discharge (scenario values).
+function calcReStats(pts, ih) {
+  let loadAcc = 0, reAcc = 0, excessAcc = 0, fullH = 0;
+  for (const p of pts) {
+    const load = p['load_mw'] || 0;
+    if (!load) continue;
+    const solar = p['ФЕЦ'] || 0, wind = p['ВяЕЦ'] || 0, vec = p['ВЕЦ'] || 0;
+    const mvec  = p['Малки ВЕЦ'] || 0, bio = p['Био ЕЦ'] || 0;
+    const batt  = battDis(p.batt_discharge_mw, p.ts);
+    const re = solar + wind + vec + mvec + bio + batt;
+    const rfl = Math.min(re, load);
+    loadAcc   += load * ih / 1000;
+    reAcc     += rfl  * ih / 1000;
+    excessAcc += Math.max(0, re - load) * ih / 1000;
+    if (rfl >= load) fullH += ih;
+  }
+  return { loadAcc, reAcc, gapAcc: loadAcc - reAcc, excessAcc, fullH };
+}
+
+function renderReStats(pts, ih) {
+  const el = document.getElementById('re-stats-bar');
+  if (!reMode) { el.style.display = 'none'; return; }
+  const rs = calcReStats(pts, ih);
+  const pct = rs.loadAcc > 0 ? rs.reAcc / rs.loadAcc * 100 : 0;
+  const card = (color, label, val, unit) => `
+    <div class="kpi" style="border-color:${color}80;">
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-val" style="color:${color};">${val}</div>
+      <div class="kpi-sub">${unit}</div>
+    </div>`;
+  el.innerHTML =
+    card('#2ee0ca', 'ВЕИ покритие', pct.toFixed(1), '%') +
+    card('#2ee0ca', 'ВЕИ енергия', rs.reAcc.toFixed(2), 'GWh') +
+    card('#cc2200', 'Непокрито', rs.gapAcc.toFixed(2), 'GWh') +
+    card('#feb56a', 'Излишък', rs.excessAcc.toFixed(2), 'GWh') +
+    card('#8a97ab', '100% покр.', fmtHMin(rs.fullH), 'ч:мин');
+  el.style.display = '';
 }
 
 function updateKpis(pts) {
@@ -502,7 +560,11 @@ function setReMode(on) {
   reMode = on;
   document.getElementById('tog-re').classList.toggle('active', on);
   writeHash();
-  if (rawBinned) render(computeScenario(rawBinned, scaleFactor));
+  if (rawBinned) {
+    const pts = computeScenario(rawBinned, scaleFactor);
+    render(pts);
+    renderReStats(pts, 0.25);
+  }
 }
 
 function recompute() {
@@ -510,6 +572,7 @@ function recompute() {
   const pts = computeScenario(rawBinned, scaleFactor);
   updateKpis(pts);
   render(pts);
+  renderReStats(pts, 0.25);
 }
 
 async function loadDay(date) {
