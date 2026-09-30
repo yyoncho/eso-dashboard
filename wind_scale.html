@@ -513,15 +513,11 @@ function render(pts) {
     fillcolor: '#f59f0080', line: { width: 0.5, color: '#f59f00', shape: 'linear' },
     hovertemplate: 'ССЕЕ разреждане: %{y:.0f} MW<extra></extra>',
   };
-  // In the same stackgroup, after everything else: a negative value here
-  // pulls the running cumulative sum down, so charging carves a visible
-  // dip into the top of the stacked area instead of drawing a separate line.
-  // Own area, filled down to the x-axis (energy-charts.info style) — not
-  // stacked with generation, just a dip below zero at its own scale.
-  // Last trace in the 'gen' stackgroup: a negative value here pulls the
-  // running cumulative sum down, carving a dip into the top of the stacked
-  // generation area — and Plotly fills that dip solid, so the gap charging
-  // opens up in the stack reads as filled-in, not just an outline.
+  // energy-charts.info style: charging goes FIRST in the 'gen' stackgroup
+  // (the baseline every other trace stacks on top of), so a negative value
+  // shifts the whole running cumulative sum down for that interval — the
+  // entire stack (nuclear included) visibly dips below zero while charging,
+  // rather than just carving a notch off the top.
   const battChargeTrace = {
     x: xs, y: pts.map(p => { const v = p.batt_charge_mw; return (v != null && v > 0) ? -v : 0; }),
     name: 'ССЕЕ зареждане', stackgroup: 'gen',
@@ -555,7 +551,7 @@ function render(pts) {
     hovertemplate: 'Сценарий нетна позиция: %{y:.0f} MW<extra></extra>',
   };
 
-  const traces = [...genTraces, battDischargeTrace, battChargeTrace, loadTrace];
+  const traces = [battChargeTrace, ...genTraces, battDischargeTrace, loadTrace];
   if (pumpsTrace) traces.push(pumpsTrace);
   traces.push(netBaseTrace, netAdjTrace);
 
