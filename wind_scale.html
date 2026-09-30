@@ -548,12 +548,14 @@ function render(pts) {
     x: xs, y: pts.map(p => isNaN(p['net_import_mw']) ? null : p['net_import_mw']),
     name: 'Нетна позиция — базова',
     line: { color: '#8a97ab', width: 1.5, dash: 'dot' },
+    visible: 'legendonly',
     hovertemplate: 'Базова нетна позиция: %{y:.0f} MW<extra></extra>',
   };
   const netAdjTrace = {
     x: xs, y: pts.map(p => isNaN(p['net_import_mw_adj']) ? null : p['net_import_mw_adj']),
     name: 'Износ — сценарий',
     line: { color: '#6a1b9a', width: 2.5 },
+    visible: 'legendonly',
     hovertemplate: 'Сценарий нетна позиция: %{y:.0f} MW<extra></extra>',
   };
 
@@ -570,6 +572,12 @@ function render(pts) {
     legend: { orientation: 'h', y: -0.22, x: 0.5, xanchor: 'center', font: { size: 10 } },
     plot_bgcolor: '#fff', paper_bgcolor: '#fff',
     hovermode: 'x unified', hoverlabel: { font: { size: 11 } },
+    // Same trace set/order on every render (only y-data and day/scale change)
+    // with a constant uirevision per filter mode — Plotly then preserves
+    // whatever the user toggled in the legend across day/scale changes,
+    // instead of resetting to the hardcoded `visible` defaults every time.
+    // Switching ВЕИ/WSB/none still resets, since the key itself changes.
+    uirevision: `wind-scale-${filterMode}`,
   };
 
   Plotly.react('chart', traces, layout, { responsive: true, displayModeBar: false });
