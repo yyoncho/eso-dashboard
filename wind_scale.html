@@ -173,6 +173,7 @@ input[type="range"] { width: 140px; }
   <div class="panel">
     <div class="panel-header">
       <span>Дневен профил — резултат от сценария</span>
+      <button class="btn" id="tog-re" onclick="setReMode(!reMode)">ВЕИ</button>
     </div>
     <div class="panel-body">
       <div id="status">Зареждане…</div>
@@ -216,22 +217,25 @@ const GEN_SERIES = [
   { key: 'Био ЕЦ',              label: 'Биомаса',       color: '#feb56a' },
 ];
 const FOSSIL_KEYS = ['Кондензационни ТЕЦ', 'Топлофикационни ТЕЦ', 'Заводски ТЕЦ'];
+const RE_KEYS = new Set(['ВЕЦ', 'Малки ВЕЦ', 'ВяЕЦ', 'ФЕЦ', 'Био ЕЦ']);
 const ALL_KEYS = [...GEN_SERIES.map(s => s.key), 'load_mw', 'net_import_mw', 'gen_total_mw', 'batt_charge_mw', 'batt_discharge_mw', 'pumps_mw'];
 
 let allDates = [];
 let selectedDate = null;
 let scaleFactor = 1.0;
+let reMode = false;
 let rawBinned = null;   // 96 bins, 00:00 -> 24:00 selectedDate, chronological
 
-// URL hash state — same pattern as index.html (#day=...&scale=...)
+// URL hash state — same pattern as index.html (#day=...&scale=...&re=...)
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
-  return { day: p.get('day'), scale: p.get('scale') };
+  return { day: p.get('day'), scale: p.get('scale'), re: p.get('re') };
 }
 function writeHash() {
   const p = new URLSearchParams();
   if (selectedDate) p.set('day', selectedDate);
   p.set('scale', scaleFactor);
+  if (reMode) p.set('re', '1');
   history.replaceState(null, '', '#' + p.toString());
 }
 
@@ -434,6 +438,7 @@ function render(pts) {
     x: xs, y: pts.map(p => isNaN(p[s.key]) ? null : Math.max(0, p[s.key] || 0)),
     name: s.label, stackgroup: 'gen',
     fillcolor: s.color + 'cc', line: { width: 0.5, color: s.color },
+    visible: (reMode && !RE_KEYS.has(s.key)) ? 'legendonly' : true,
     hovertemplate: `${s.label}: %{y:.0f} MW<extra></extra>`,
   }));
 
@@ -446,12 +451,14 @@ function render(pts) {
   const battChargeTrace = {
     x: xs, y: pts.map(p => { const v = p.batt_charge_mw; return (v != null && v > 0) ? -v : 0; }),
     name: 'ССЕЕ зареждане', line: { color: '#8e24aa', width: 1.5, dash: 'dot', shape: 'spline' },
+    visible: reMode ? 'legendonly' : true,
     hovertemplate: 'ССЕЕ зареждане: %{y:.0f} MW<extra></extra>',
   };
   const hasPumps = pts.some(p => (p.pumps_mw || 0) > 0);
   const pumpsTrace = hasPumps ? {
     x: xs, y: pts.map(p => { const v = p.pumps_mw || 0; return v > 0 ? -v : 0; }),
     name: 'Помпи', line: { color: '#0369a1', width: 1.5, dash: 'dot', shape: 'spline' },
+    visible: reMode ? 'legendonly' : true,
     hovertemplate: 'Помпи: %{y:.0f} MW<extra></extra>',
   } : null;
 
@@ -489,6 +496,13 @@ function render(pts) {
   };
 
   Plotly.react('chart', traces, layout, { responsive: true, displayModeBar: false });
+}
+
+function setReMode(on) {
+  reMode = on;
+  document.getElementById('tog-re').classList.toggle('active', on);
+  writeHash();
+  if (rawBinned) render(computeScenario(rawBinned, scaleFactor));
 }
 
 function recompute() {
@@ -550,6 +564,8 @@ async function main() {
   const defaultDate = allDates.length >= 2 ? allDates[allDates.length - 2] : allDates[allDates.length - 1];
   selectedDate = (h.day && allDates.includes(h.day)) ? h.day : defaultDate;
   if (h.scale != null && isFinite(parseFloat(h.scale))) scaleFactor = Math.max(1, parseFloat(h.scale));
+  reMode = h.re === '1';
+  document.getElementById('tog-re').classList.toggle('active', reMode);
 
   const picker = document.getElementById('date-picker');
   if (allDates.length) { picker.min = allDates[0]; picker.max = allDates[allDates.length - 1]; }
