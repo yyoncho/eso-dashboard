@@ -518,10 +518,14 @@ function render(pts) {
   // dip into the top of the stacked area instead of drawing a separate line.
   // Own area, filled down to the x-axis (energy-charts.info style) — not
   // stacked with generation, just a dip below zero at its own scale.
+  // Last trace in the 'gen' stackgroup: a negative value here pulls the
+  // running cumulative sum down, carving a dip into the top of the stacked
+  // generation area — and Plotly fills that dip solid, so the gap charging
+  // opens up in the stack reads as filled-in, not just an outline.
   const battChargeTrace = {
     x: xs, y: pts.map(p => { const v = p.batt_charge_mw; return (v != null && v > 0) ? -v : 0; }),
-    name: 'ССЕЕ зареждане', fill: 'tozeroy',
-    fillcolor: '#8e24aa66', line: { width: 1, color: '#8e24aa', shape: 'spline' },
+    name: 'ССЕЕ зареждане', stackgroup: 'gen',
+    fillcolor: '#8e24aa80', line: { width: 0.5, color: '#8e24aa', shape: 'linear' },
     visible: filterMode !== 'none' ? 'legendonly' : true,
     hovertemplate: 'ССЕЕ зареждане: %{y:.0f} MW<extra></extra>',
   };
