@@ -255,9 +255,10 @@ function addDaysStr(dateStr, days) {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
-async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(url); return r.json(); }
+function cacheBust(url) { return url + (url.includes('?') ? '&' : '?') + '_=' + Date.now(); }
+async function getJSON(url) { const r = await fetch(cacheBust(url)); if (!r.ok) throw new Error(url); return r.json(); }
 async function getJSONL(url) {
-  const r = await fetch(url);
+  const r = await fetch(cacheBust(url));
   if (!r.ok) throw new Error(url);
   const text = await r.text();
   return text.trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
