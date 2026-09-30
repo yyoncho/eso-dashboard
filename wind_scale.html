@@ -516,10 +516,12 @@ function render(pts) {
   // In the same stackgroup, after everything else: a negative value here
   // pulls the running cumulative sum down, so charging carves a visible
   // dip into the top of the stacked area instead of drawing a separate line.
+  // Own area, filled down to the x-axis (energy-charts.info style) — not
+  // stacked with generation, just a dip below zero at its own scale.
   const battChargeTrace = {
     x: xs, y: pts.map(p => { const v = p.batt_charge_mw; return (v != null && v > 0) ? -v : 0; }),
-    name: 'ССЕЕ зареждане', stackgroup: 'gen',
-    fillcolor: '#8e24aa80', line: { width: 0.5, color: '#8e24aa', shape: 'linear' },
+    name: 'ССЕЕ зареждане', fill: 'tozeroy',
+    fillcolor: '#8e24aa66', line: { width: 1, color: '#8e24aa', shape: 'spline' },
     visible: filterMode !== 'none' ? 'legendonly' : true,
     hovertemplate: 'ССЕЕ зареждане: %{y:.0f} MW<extra></extra>',
   };
