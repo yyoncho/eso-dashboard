@@ -144,7 +144,7 @@ input[type="range"] { width: 140px; }
         <div class="control-group">
           <span class="control-label">Ден</span>
           <button class="btn" id="prev-day-btn" onclick="shiftDay(-1)" style="padding:5px 9px;">&#8592;</button>
-          <span id="date-label" style="font-size:0.85rem;color:#1a2233;font-weight:600;min-width:90px;text-align:center;">—</span>
+          <input type="date" id="date-picker" onchange="onDateChange(this.value)">
           <button class="btn" id="next-day-btn" onclick="shiftDay(1)" style="padding:5px 9px;">&#8594;</button>
         </div>
         <div class="control-group">
@@ -619,7 +619,7 @@ function updateDayNav() {
   const idx = allDates.indexOf(selectedDate);
   document.getElementById('prev-day-btn').disabled = idx <= 0;
   document.getElementById('next-day-btn').disabled = idx === -1 || idx >= allDates.length - 1;
-  document.getElementById('date-label').textContent = selectedDate || '—';
+  document.getElementById('date-picker').value = selectedDate;
 }
 function shiftDay(delta) {
   const idx = allDates.indexOf(selectedDate);
@@ -630,6 +630,13 @@ function shiftDay(delta) {
   updateDayNav();
   writeHash();
   loadDay(selectedDate);
+}
+function onDateChange(v) {
+  if (!v) return;
+  selectedDate = v;
+  updateDayNav();
+  writeHash();
+  loadDay(v);
 }
 function onScaleInput(v) {
   scaleFactor = Math.max(1, parseFloat(v) || 1);
@@ -652,6 +659,8 @@ async function main() {
   document.getElementById('tog-re').classList.toggle('active', filterMode === 're');
   document.getElementById('tog-wsb').classList.toggle('active', filterMode === 'wsb');
 
+  const picker = document.getElementById('date-picker');
+  if (allDates.length) { picker.min = allDates[0]; picker.max = allDates[allDates.length - 1]; }
   updateDayNav();
   document.getElementById('scale-slider').value = scaleFactor;
   document.getElementById('scale-number').value = scaleFactor;
