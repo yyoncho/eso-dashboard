@@ -39,6 +39,11 @@ header {
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
 .day-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+/* Each group (mode toggle / period nav / actions) wraps as one atomic unit,
+   so narrow screens break between groups instead of splitting a single
+   control (e.g. the ← arrow stranding on its own line away from the → arrow
+   and the period label). */
+.nav-group { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; max-width: 100%; }
 .nav-btn {
   padding: 4px 10px; background: rgba(255,255,255,0.15);
   border: 1px solid rgba(255,255,255,0.3); border-radius: 4px;
@@ -48,6 +53,14 @@ header {
 .nav-btn.active { background: #ffd700; border-color: #ffd700; color: #003070; font-weight: 700; }
 .nav-btn:disabled { opacity: 0.3; cursor: default; }
 #day-label { font-size: 0.82rem; color: rgba(255,255,255,0.9); font-weight: 600; white-space: nowrap; }
+@media (max-width: 440px) {
+  /* Long week/month range labels ("Седмица 40 (2026-09-28 → 2026-10-04)")
+     don't fit beside both arrow buttons on a phone-width row — let the
+     label wrap onto a second line instead of pushing the → button
+     off-screen or splitting it onto a different row than ←. */
+  #day-label { white-space: normal; min-width: 0; flex: 1 1 auto; text-align: center; }
+  #prev-btn, #next-btn { flex-shrink: 0; }
+}
 
 input[type="date"]#date-picker {
   padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.4);
@@ -262,17 +275,22 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
         <span id="lang-flags" style="margin-left:8px;"></span>
       </div>
       <div class="day-nav">
-        <button class="nav-btn" id="mode-gear" onclick="toggleModeControls()" title="Избор на период (ден/седмица/месец)" style="padding:4px 7px;">&#9881;</button>
-        <div class="toggle-group" id="mode-toggle" style="margin-right:2px;display:none;">
-          <button class="tog-btn" id="mode-day"   onclick="setMode('day')"  title="Единичен ден">Ден</button>
-          <button class="tog-btn" id="mode-week"  onclick="setMode('week')"  title="Седмица (7 дни)">Седмица</button>
-          <button class="tog-btn" id="mode-month" onclick="setMode('month')" title="Календарен месец">Месец</button>
+        <div class="nav-group">
+          <button class="nav-btn" id="mode-gear" onclick="toggleModeControls()" title="Избор на период (ден/седмица/месец)" style="padding:4px 7px;">&#9881;</button>
+          <div class="toggle-group" id="mode-toggle" style="margin-right:2px;display:none;">
+            <button class="tog-btn" id="mode-day"   onclick="setMode('day')"  title="Единичен ден">Ден</button>
+            <button class="tog-btn" id="mode-week"  onclick="setMode('week')"  title="Седмица (7 дни)">Седмица</button>
+            <button class="tog-btn" id="mode-month" onclick="setMode('month')" title="Календарен месец">Месец</button>
+          </div>
         </div>
-        <button class="nav-btn" id="prev-btn" onclick="shiftRange(-1)">&#8592;</button>
-        <span id="day-label"></span>
-        <button class="nav-btn" id="next-btn" onclick="shiftRange(1)" disabled>&#8594;</button>
-        <input type="date" id="date-picker" onchange="pickDate(this.value)">
-        <input type="date" id="date-picker-end" onchange="pickEndDate(this.value)" style="display:none;" title="Край на периода">
+        <div class="nav-group">
+          <button class="nav-btn" id="prev-btn" onclick="shiftRange(-1)">&#8592;</button>
+          <span id="day-label"></span>
+          <button class="nav-btn" id="next-btn" onclick="shiftRange(1)" disabled>&#8594;</button>
+          <input type="date" id="date-picker" onchange="pickDate(this.value)">
+          <input type="date" id="date-picker-end" onchange="pickEndDate(this.value)" style="display:none;" title="Край на периода">
+        </div>
+        <div class="nav-group">
         <button class="nav-btn active" id="today-btn" onclick="goToday()">Днес</button>
         <a class="nav-btn" id="records-btn" href="records.html" style="padding:4px 7px;display:inline-flex;align-items:center;text-decoration:none">🏆</a>
         <div class="rec-dropdown-wrap" style="position:relative">
@@ -289,6 +307,7 @@ input[type="date"]#date-picker:focus { outline: 2px solid #ffd700; }
               <a href="battery_spread_4h.html" style="font-size:0.82rem;color:#2d6bbf;text-decoration:none">🔁 Спред 4ч — арбитраж на батерии</a>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
