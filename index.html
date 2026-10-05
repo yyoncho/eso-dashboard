@@ -1116,7 +1116,8 @@ function updateNav() {
 
   const endPicker = document.getElementById('date-picker-end');
   if (endPicker) {
-    endPicker.style.display = (showControls && (mode === 'day' || mode === 'custom')) ? '' : 'none';
+    // Same reasoning as #date-picker above — no calendar widgets in the header.
+    endPicker.style.display = 'none';
     endPicker.min = start;
     endPicker.max = today;
     endPicker.value = mode === 'custom' ? end : '';
