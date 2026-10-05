@@ -18,6 +18,13 @@ set +e
 DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/compute_records.py" || true
 DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/update_records_history_jsonl.py" || true
 
+# ── Load profile — once per day ───────────────────────────────────────────────
+TODAY=$(date -u +%Y-%m-%d)
+PROFILE="$DATA_WORKTREE/data/load_profile.json"
+if ! grep -q "\"computed\": \"$TODAY\"" "$PROFILE" 2>/dev/null; then
+    DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/compute_load_profile.py" || true
+fi
+
 # Ember hourly prices — refresh every 3 days (large ZIP, so TTL-gated inside script)
 DATA_DIR="$DATA_WORKTREE/data" python3 "$SCRIPT_DIR/update_ember_prices.py" || true
 
