@@ -115,6 +115,7 @@ def main():
         'peak_consumption':  {'label': 'Пиково натоварване на мрежата',               'unit': 'MW', 'since': JSONL_START},
         'peak_gen_daylight': {'label': 'Пиково производство (дневно, 08-18ч)',         'unit': 'MW', 'since': JSONL_START},
         'peak_gen_evening':  {'label': 'Пиково производство (вечерен пик, 18-22ч)',    'unit': 'MW', 'since': JSONL_START},
+        'export_gwh_day':    {'label': 'Износ енергия за ден',                         'unit': 'GWh', 'since': JSONL_START},
     }
     for k, meta in NEW_METRICS_META.items():
         existing.setdefault(k, dict(meta))
@@ -136,6 +137,7 @@ def main():
     peak_cons_hist,     peak_cons_max,     peak_cons_pool     = get_baseline(existing, 'peak_consumption')
     peak_gen_day_hist,  peak_gen_day_max,  peak_gen_day_pool  = get_baseline(existing, 'peak_gen_daylight')
     peak_gen_eve_hist,  peak_gen_eve_max,  peak_gen_eve_pool  = get_baseline(existing, 'peak_gen_evening')
+    export_gwh_hist,    export_gwh_max,    export_gwh_pool    = get_baseline(existing, 'export_gwh_day')
 
     sol_all       = list(sol_pool)
     sol_gwh_all   = list(sol_gwh_pool)
@@ -152,6 +154,7 @@ def main():
     peak_cons_all    = list(peak_cons_pool)
     peak_gen_day_all = list(peak_gen_day_pool)
     peak_gen_eve_all = list(peak_gen_eve_pool)
+    export_gwh_all   = list(export_gwh_pool)
 
     days = defaultdict(lambda: {'re': 0.0, 'demand': 0.0, 're_covers_h': 0.0, 'n': 0})
 
@@ -165,7 +168,7 @@ def main():
             continue
         ihs = intervals_h(records)
 
-        day_sol_gwh = day_chg_gwh = day_dis_gwh = day_pumps_gwh = 0.0
+        day_sol_gwh = day_chg_gwh = day_dis_gwh = day_pumps_gwh = day_export_gwh = 0.0
 
         for r, ih in zip(records, ihs):
             solar     = r.get('ФЕЦ') or 0.0
@@ -184,6 +187,7 @@ def main():
                 sol_max = solar
                 _hist_append(sol_hist, day, round(solar, 1), ts)
             day_sol_gwh += solar * ih / 1000
+            day_export_gwh += export * ih / 1000
 
             # Export peak MW (tracked from JSONL only)
             export_all.append((day, export, ts))
@@ -253,6 +257,10 @@ def main():
         chg_gwh_all.append((day, day_chg_gwh))
         dis_gwh_all.append((day, day_dis_gwh))
         pumps_gwh_all.append((day, day_pumps_gwh))
+        export_gwh_all.append((day, day_export_gwh))
+        if day_export_gwh > export_gwh_max:
+            export_gwh_max = day_export_gwh
+            export_gwh_hist.append({'d': day, 'val': round(day_export_gwh, 3)})
         if day >= PUMPS_START:
             if day_chg_gwh > chg_gwh_max:
                 chg_gwh_max = day_chg_gwh
@@ -306,6 +314,7 @@ def main():
         'peak_consumption':  {'history': peak_cons_hist,    'top10': top10(peak_cons_all)},
         'peak_gen_daylight': {'history': peak_gen_day_hist, 'top10': top10(peak_gen_day_all)},
         'peak_gen_evening':  {'history': peak_gen_eve_hist, 'top10': top10(peak_gen_eve_all)},
+        'export_gwh_day':    {'history': export_gwh_hist,   'top10': top10(export_gwh_all)},
     }
     for key, val in updates.items():
         existing[key].update(val)

@@ -61,6 +61,7 @@ def main():
         'dis_gwh_day': {'val': 0.0, 'label': 'Разреждане за ден',          'unit': 'GWh', 'date': None, 'snap_ts': None},
         'pumps_gwh':   {'val': 0.0, 'label': 'Помпи рекорд ден',           'unit': 'GWh', 'date': None, 'snap_ts': None},
         'export':      {'val': 0.0, 'label': 'Пикова мощност износ',       'unit': 'MW',  'date': None, 'snap_ts': None},
+        'export_gwh_day': {'val': 0.0, 'label': 'Износ енергия за ден',    'unit': 'GWh', 'date': None, 'snap_ts': None},
         'daily_re':    {'val': 0.0, 'label': 'Дневен дял ВЕИ',             'unit': '%',   'date': None, 'snap_ts': None},
         're_gwh_day':  {'val': 0.0, 'label': 'ВЕИ енергия за ден',         'unit': 'GWh', 'date': None, 'snap_ts': None},
         're_hours':    {'val': 0.0, 'label': 'Най-дълго 100% ВЕИ',         'unit': 'ч',   'date': None, 'snap_ts': None},
@@ -76,7 +77,7 @@ def main():
             continue
         ihs = intervals_h(records)
         load_gwh = re_gwh = re_hours = solar_gwh = 0.0
-        day_chg_gwh = day_dis_gwh = day_pumps_gwh = 0.0
+        day_chg_gwh = day_dis_gwh = day_pumps_gwh = day_export_gwh = 0.0
 
         for r, ih in zip(records, ihs):
             ts    = r.get('timestamp_utc') or r.get('timestamp') or ''
@@ -91,6 +92,7 @@ def main():
             load_gwh  += load  * ih / 1000
             re_gwh    += min(re_av, load) * ih / 1000
             solar_gwh += solar * ih / 1000
+            day_export_gwh += exp * ih / 1000
             if load > 0 and re_av >= load:
                 re_hours += ih
 
@@ -138,6 +140,8 @@ def main():
             rec['re_gwh_day'].update(val=round(re_gwh, 1), date=day, snap_ts=None)
         if day_pumps_gwh > rec['pumps_gwh']['val']:
             rec['pumps_gwh'].update(val=round(day_pumps_gwh, 1), date=day, snap_ts=None)
+        if day_export_gwh > rec['export_gwh_day']['val']:
+            rec['export_gwh_day'].update(val=round(day_export_gwh, 1), date=day, snap_ts=None)
 
         if day >= PUMPS_START:
             if day_chg_gwh > rec['chg_gwh_day']['val']:

@@ -295,7 +295,7 @@ let _rec = null;
 let _hist = null;
 
 const ORDER = [
-  'solar', 'solar_gwh', 'export',
+  'solar', 'solar_gwh', 'export', 'export_gwh_day',
   'batt_chg', 'total_chg', 'chg_gwh_day',
   'batt_dis', 'dis_gwh_day',
   'peak_consumption', 'peak_gen_daylight', 'peak_gen_evening',
@@ -406,6 +406,7 @@ function renderDetail(key) {
     solar:       'ЕСО SCADA часови данни (2015–2026-06), след което локално записани 5-мин данни.',
     solar_gwh:   'ЕСО SCADA часови данни (2015–2026-06), след което локално записани 5-мин данни.',
     export:      'Следени от май 2026 (ССЕЕ пуснато). Исторически рекорди преди 2026 не са включени — тогавашните пикове са несравними с ССЕЕ-подпомогнатия износ.',
+    export_gwh_day: 'Дневна изнесена енергия (сума от 5-мин мощност на износ). ЕСО SCADA данни от май 2026.',
     daily_re:    'ВЕИ = ВЕЦ + Малки ВЕЦ + ВяЕЦ + ФЕЦ + Биомаса (ENTSOE). Без ССЕЕ за периоди преди 2026.',
     re_gwh_day:  'ВЕИ дневна енергия без ССЕЕ (ENTSOE).',
     re_hours:    'Часове при 100% ВЕИ покритие без ССЕЕ (ENTSOE). ССЕЕ удвоява реалните стойности от 2026.',

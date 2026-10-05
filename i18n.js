@@ -44,9 +44,44 @@
     'Зареждане…': 'Loading…',
     'АЕЦ': 'Nuclear',
     'КЗЛ': 'KZL',
+
+    // ═══ wind_scale.html — isolated node texts, safe as exact matches ═══
+    'Скалиране на вятъра (скрито) — БГ Eнергетика': 'Wind scaling (hidden) — BG Energy',
+    '💨 Скалиране на вятъра — сценарий': '💨 Wind scaling — scenario',
+    'Прототип · скрито': 'Prototype · hidden',
+    'Настройки на сценария': 'Scenario settings',
+    'Ден': 'Day',
+    'Фактор на вятъра': 'Wind factor',
+    'Вятър (наблюдаван)': 'Wind (observed)',
+    'Вятър (мащабиран)': 'Wind (scaled)',
+    '24ч, наблюдаван вятър': '24h, observed wind',
+    'Общо производство (ден)': 'Total generation (day)',
+    'Изкопаемо производство (ден)': 'Fossil generation (day)',
+    'Износ (ден)': 'Exports (day)',
+    'Нетен износ (ден)': 'Net exports (day)',
+    'Дневен профил — резултат от сценария': 'Daily profile — scenario result',
+    'Вятър+ФЕЦ+Батерии': 'Wind+Solar+Batteries',
+    'Общо за деня по източник — сценарий': 'Daily total by source — scenario',
+    'Как работи:': 'How it works:',
+    'Вятърната мощност (ВяЕЦ) за избрания ден се умножава по зададения фактор; АЕЦ, ВЕЦ, ФЕЦ, биомасата, товарът, изкопаемото производство (Конд., Топло. и Зав. ТЕЦ) и батериите (ССЕЕ/помпи) остават точно както са наблюдавани — без преизчисляване на диспечирането им. Целият допълнителен вятър (мащабиран − наблюдаван) директно увеличава износа (намалява нетния внос) в същия 15-мин интервал — енергиен баланс на ниво интервал, без времево изместване и без изместване на ТЕЦ.':
+      'Wind power (ВяЕЦ) for the selected day is multiplied by the chosen factor; nuclear, hydro, solar, biomass, load, fossil generation (condensing, district-heating and industrial TPPs) and batteries (BESS/pumps) stay exactly as observed — their dispatch is not recomputed. All of the extra wind (scaled − observed) directly increases exports (reduces net imports) in the same 15-min interval — an interval-level energy balance, with no time-shifting and no displacement of TPPs.',
+    'Илюстративен инструмент за бърза преценка на "какво би станало", не финансов или инженерен модел.':
+      'An illustrative tool for a quick "what if" estimate, not a financial or engineering model.',
+    'Вятър+ФЕЦ+Бат. покритие': 'Wind+Solar+Batt. coverage',
+    'Вятър+ФЕЦ+Бат. енергия': 'Wind+Solar+Batt. energy',
+    'Износ — сценарий': 'Exports — scenario',
+    'Нетна позиция — базова': 'Net position — baseline',
   };
 
   const SUB = [
+    // ═══ wind_scale.html — interpolated fragments (numbers around them) ═══
+    ['база ', 'base '],
+    [' (вкл. разреждане ССЕЕ)', ' (incl. BESS discharge)'],
+    [' (ТЕЦ)', ' (TPP)'],
+    [' (+ износ / − внос)', ' (+ export / − import)'],
+    ['Базова нетна позиция', 'Baseline net position'],
+    ['Сценарий нетна позиция', 'Scenario net position'],
+
     // ═══ long info texts (index.html dropdowns) ═══
     ['Данните за производство по източници са в реално време от ЕСО ЕАД. Вносът и износът се показват директно от ЕСО без допълнителна обработка. ССЕЕ (батерия) се връща от API-то на ЕСО, но не е включено в процентното разпределение на диаграмата — това обяснява „липсващите" проценти до 100%. Зареждането се изчислява като разлика между общото потребление и сумата от всички останали източници; разреждането се отчита директно от API-то. Верификация: производство + внос − износ ≈ потребление.',
      'Generation-by-source data is real-time from ESO EAD. Imports and exports are shown directly from ESO without further processing. BESS (battery) values come from the ESO API but are not included in the chart’s percentage breakdown — this explains the “missing” percentages up to 100%. Charging is computed as the difference between total consumption and the sum of all other sources; discharging is reported directly by the API. Verification: generation + imports − exports ≈ consumption.'],
@@ -66,6 +101,8 @@
      'ESO SCADA hourly data (2015–2026-06), then locally recorded 5-min data.'],
     ['Следени от май 2026 (ССЕЕ пуснато). Исторически рекорди преди 2026 не са включени — тогавашните пикове са несравними с ССЕЕ-подпомогнатия износ.',
      'Tracked since May 2026 (BESS commissioned). Records before 2026 are not included — those peaks are not comparable with BESS-assisted exports.'],
+    ['Дневна изнесена енергия (сума от 5-мин мощност на износ). ЕСО SCADA данни от май 2026.',
+     'Daily exported energy (summed from 5-min export power). ESO SCADA data since May 2026.'],
     ['ВЕИ = ВЕЦ + Малки ВЕЦ + ВяЕЦ + ФЕЦ + Биомаса (ENTSOE). Без ССЕЕ за периоди преди 2026.',
      'RES = hydro + small hydro + wind + solar + biomass (ENTSOE). Excludes BESS for periods before 2026.'],
     ['ВЕИ дневна енергия без ССЕЕ (ENTSOE).', 'Daily RES energy excluding BESS (ENTSOE).'],
@@ -458,6 +495,7 @@
     ['Разреждане за ден', 'Discharging in a day'],
     ['Помпи рекорд ден', 'Pumps record day'],
     ['Пикова мощност износ', 'Peak export power'],
+    ['Износ енергия за ден', 'Export energy in a day'],
     ['Дневен дял ВЕИ', 'Daily RES share'],
     ['ВЕИ енергия за ден', 'RES energy in a day'],
     ['Най-дълго 100% ВЕИ', 'Longest 100% RES'],
