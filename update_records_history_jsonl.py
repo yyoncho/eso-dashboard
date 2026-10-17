@@ -116,6 +116,7 @@ def main():
         'peak_gen_daylight': {'label': 'Пиково производство (дневно, 08-18ч)',         'unit': 'MW', 'since': JSONL_START},
         'peak_gen_evening':  {'label': 'Пиково производство (вечерен пик, 18-22ч)',    'unit': 'MW', 'since': JSONL_START},
         'export_gwh_day':    {'label': 'Износ енергия за ден',                         'unit': 'GWh', 'since': JSONL_START},
+        'night_chg_gwh':     {'label': 'Нощно зареждане за ден (22-06ч)',              'unit': 'GWh', 'since': PUMPS_START},
     }
     for k, meta in NEW_METRICS_META.items():
         existing.setdefault(k, dict(meta))
@@ -127,9 +128,10 @@ def main():
     batt_chg_hist,  batt_chg_max,  batt_chg_pool  = get_baseline(existing, 'batt_chg',    PUMPS_START)
     total_chg_hist, total_chg_max, total_chg_pool = get_baseline(existing, 'total_chg',   PUMPS_START)
     batt_dis_hist,  batt_dis_max,  batt_dis_pool  = get_baseline(existing, 'batt_dis')
-    chg_gwh_hist,   chg_gwh_max,   chg_gwh_pool   = get_baseline(existing, 'chg_gwh_day', PUMPS_START)
-    dis_gwh_hist,   dis_gwh_max,   dis_gwh_pool   = get_baseline(existing, 'dis_gwh_day', PUMPS_START)
-    pumps_gwh_hist, pumps_gwh_max, pumps_gwh_pool = get_baseline(existing, 'pumps_gwh',   PUMPS_START)
+    chg_gwh_hist,       chg_gwh_max,       chg_gwh_pool       = get_baseline(existing, 'chg_gwh_day',   PUMPS_START)
+    dis_gwh_hist,       dis_gwh_max,       dis_gwh_pool       = get_baseline(existing, 'dis_gwh_day',   PUMPS_START)
+    pumps_gwh_hist,     pumps_gwh_max,     pumps_gwh_pool     = get_baseline(existing, 'pumps_gwh',     PUMPS_START)
+    night_chg_hist,     night_chg_max,     night_chg_pool     = get_baseline(existing, 'night_chg_gwh', PUMPS_START)
     export_hist,    export_max,    export_pool    = get_baseline(existing, 'export')
     daily_re_hist,  daily_re_max,  daily_re_pool  = get_baseline(existing, 'daily_re')
     re_gwh_hist,    re_gwh_max,    re_gwh_pool    = get_baseline(existing, 're_gwh_day')
@@ -146,7 +148,8 @@ def main():
     batt_dis_all  = list(batt_dis_pool)
     chg_gwh_all   = list(chg_gwh_pool)
     dis_gwh_all   = list(dis_gwh_pool)
-    pumps_gwh_all = list(pumps_gwh_pool)
+    pumps_gwh_all   = list(pumps_gwh_pool)
+    night_chg_all   = list(night_chg_pool)
     export_all    = list(export_pool)
     daily_re_all  = list(daily_re_pool)
     re_gwh_all    = list(re_gwh_pool)
@@ -168,7 +171,7 @@ def main():
             continue
         ihs = intervals_h(records)
 
-        day_sol_gwh = day_chg_gwh = day_dis_gwh = day_pumps_gwh = day_export_gwh = 0.0
+        day_sol_gwh = day_chg_gwh = day_dis_gwh = day_pumps_gwh = day_export_gwh = day_night_chg_gwh = 0.0
 
         for r, ih in zip(records, ihs):
             solar     = r.get('ФЕЦ') or 0.0
@@ -240,6 +243,8 @@ def main():
                 day_chg_gwh   += chg   * ih / 1000
                 day_dis_gwh   += dis   * ih / 1000
                 day_pumps_gwh += pumps * ih / 1000
+                if bg_hour is not None and (bg_hour >= 22 or bg_hour < 6):
+                    day_night_chg_gwh += chg * ih / 1000
 
             # Daily RE accumulation (cap RE at demand, same as compute_records.py)
             d = days[day]
@@ -271,6 +276,10 @@ def main():
             if day_pumps_gwh > pumps_gwh_max:
                 pumps_gwh_max = day_pumps_gwh
                 pumps_gwh_hist.append({'d': day, 'val': round(day_pumps_gwh, 3)})
+            night_chg_all.append((day, day_night_chg_gwh))
+            if day_night_chg_gwh > night_chg_max:
+                night_chg_max = day_night_chg_gwh
+                night_chg_hist.append({'d': day, 'val': round(day_night_chg_gwh, 3)})
 
     # ── Daily RE metrics from accumulators ───────────────────────────────────
     for date in sorted(days.keys()):
@@ -315,6 +324,7 @@ def main():
         'peak_gen_daylight': {'history': peak_gen_day_hist, 'top10': top10(peak_gen_day_all)},
         'peak_gen_evening':  {'history': peak_gen_eve_hist, 'top10': top10(peak_gen_eve_all)},
         'export_gwh_day':    {'history': export_gwh_hist,   'top10': top10(export_gwh_all)},
+        'night_chg_gwh':     {'history': night_chg_hist,   'top10': top10(night_chg_all)},
     }
     for key, val in updates.items():
         existing[key].update(val)
