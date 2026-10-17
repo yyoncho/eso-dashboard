@@ -2482,7 +2482,7 @@ function updateRecordAlerts(allRecords, binned, dateStr) {
 
   const ih = 15 / 60;
   let solarPeak = 0, chgPeak = 0, totalChgPeak = 0, disPeak = 0, exportPeak = 0;
-  let solarGwh = 0, chgGwh = 0, disGwh = 0, pumpsGwh = 0;
+  let solarGwh = 0, chgGwh = 0, disGwh = 0, pumpsGwh = 0, nightChgGwh = 0;
   let peakConsumption = 0, peakGenDaylight = 0, peakGenEvening = 0;
 
   // Snapshot peaks from raw records
@@ -2505,6 +2505,8 @@ function updateRecordAlerts(allRecords, binned, dateStr) {
     chgGwh   += Math.max(0, b['batt_charge_mw'] || 0) * ih / 1000;
     disGwh   += Math.max(0, battDis(b['batt_discharge_mw'], b.ts)) * ih / 1000;
     pumpsGwh += Math.max(0, b['pumps_mw'] || 0) * ih / 1000;
+    const bH = parseInt(toSofiaStr(b.ts || toUtcMs(b)).slice(11, 13), 10);
+    if (bH >= 22 || bH < 6) nightChgGwh += Math.max(0, b['batt_charge_mw'] || 0) * ih / 1000;
     const load  = b['load_mw'] || 0;
     const re    = (b['ФЕЦ']||0) + (b['ВяЕЦ']||0) + (b['ВЕЦ']||0) + (b['Малки ВЕЦ']||0) + (b['Био ЕЦ']||0) + battDis(b['batt_discharge_mw'], b.ts);
     const rfl   = Math.min(re, load);
@@ -2529,7 +2531,8 @@ function updateRecordAlerts(allRecords, binned, dateStr) {
     peak_gen_daylight: peakGenDaylight,
     peak_gen_evening:  peakGenEvening,
     re_gwh_day:  reGwh,
-    re_hours:    reHours,
+    re_hours:      reHours,
+    night_chg_gwh: nightChgGwh,
   };
 
   const beating = [];

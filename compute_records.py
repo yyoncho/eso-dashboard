@@ -68,6 +68,7 @@ def main():
         'peak_consumption':  {'val': 0.0, 'label': 'Пиково натоварване на мрежата',             'unit': 'MW', 'date': None, 'snap_ts': None},
         'peak_gen_daylight': {'val': 0.0, 'label': 'Пиково производство (дневно, 08-18ч)',      'unit': 'MW', 'date': None, 'snap_ts': None},
         'peak_gen_evening':  {'val': 0.0, 'label': 'Пиково производство (вечерен пик, 18-22ч)', 'unit': 'MW', 'date': None, 'snap_ts': None},
+        'night_chg_gwh':     {'val': 0.0, 'label': 'Нощно зареждане за ден (22-06ч)',           'unit': 'GWh', 'date': None, 'snap_ts': None},
     }
 
     for f in sorted(DATA_DIR.glob('2026-*.jsonl')):
@@ -77,7 +78,7 @@ def main():
             continue
         ihs = intervals_h(records)
         load_gwh = re_gwh = re_hours = solar_gwh = 0.0
-        day_chg_gwh = day_dis_gwh = day_pumps_gwh = day_export_gwh = 0.0
+        day_chg_gwh = day_dis_gwh = day_pumps_gwh = day_export_gwh = day_night_chg_gwh = 0.0
 
         for r, ih in zip(records, ihs):
             ts    = r.get('timestamp_utc') or r.get('timestamp') or ''
@@ -125,6 +126,9 @@ def main():
             if bg_hour is not None and 18 <= bg_hour < 22 and gen_total_mw > rec['peak_gen_evening']['val']:
                 rec['peak_gen_evening'].update(val=round(gen_total_mw, 1), date=day, snap_ts=ts)
 
+            if bg_hour is not None and (bg_hour >= 22 or bg_hour < 6) and day >= PUMPS_START:
+                day_night_chg_gwh += chg * ih / 1000
+
             if day >= PUMPS_START:
                 day_chg_gwh += chg * ih / 1000
                 day_dis_gwh += dis * ih / 1000
@@ -148,6 +152,8 @@ def main():
                 rec['chg_gwh_day'].update(val=round(day_chg_gwh, 1), date=day, snap_ts=None)
             if day_dis_gwh > rec['dis_gwh_day']['val']:
                 rec['dis_gwh_day'].update(val=round(day_dis_gwh, 1), date=day, snap_ts=None)
+            if day_night_chg_gwh > rec['night_chg_gwh']['val']:
+                rec['night_chg_gwh'].update(val=round(day_night_chg_gwh, 3), date=day, snap_ts=None)
 
     out = DATA_DIR / 'records.json'
     out.write_text(json.dumps(rec, ensure_ascii=False, indent=2))
