@@ -91,11 +91,11 @@
     "snap_ts": null
   },
   "peak_consumption": {
-    "val": 9246.3,
+    "val": 9251.3,
     "label": "Пиково натоварване на мрежата",
     "unit": "MW",
     "date": "2026-11-07",
-    "snap_ts": "2026-11-07T09:55:02Z"
+    "snap_ts": "2026-11-07T10:55:02Z"
   },
   "peak_gen_daylight": {
     "val": 8835.6,
